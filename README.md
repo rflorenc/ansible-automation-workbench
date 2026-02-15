@@ -1,7 +1,23 @@
 # Ansible Automation Workbench
 
-A web tool for managing AWX and AAP 2.x environments.  
-Browse resources, populate sample data, export assets and migrate between automation platforms, from a single interface.  
+A web tool for managing AWX and AAP 2.x environments.
+Browse resources, populate sample data, export assets and migrate between automation platforms, from a single interface.
+Additionally it can be useful as a support tool for Ansible workshops, demos or just for better understading the APIs.
+
+## Download and Usage
+
+Pre-built binaries for Linux, macOS and Windows are available at [Releases](https://github.com/rflorenc/ansible-automation-workbench/releases).  
+
+```bash
+release=https://github.com/rflorenc/ansible-automation-workbench/releases/latest/download/ansible-automation-workbench_0.1.0_linux_amd64.tar.gz  
+
+mkdir -p /tmp/workbench && cd /tmp/workbench
+curl -sLO $release
+tar xzf ansible-automation-workbench_*.tar.gz
+
+cp config.yaml.example config.yaml   # edit with your connections
+./autoworkbench --config config.yaml
+```
 
 ## Screenshots
 
@@ -11,14 +27,13 @@ Browse resources, populate sample data, export assets and migrate between automa
 
 ## Features
 
-- **Object Browser** — Browse any resource type (organizations, credentials, job templates, schedules, execution environments, etc.) across connected AWX and AAP instances
-- **Migrate** — API-driven migration from AWX/AAP to AAP: preview with conflict detection, then import in dependency order (no Ansible dependency)
-- **Populate** — Create a full set of sample objects (orgs, teams, users, credentials, projects, inventories, job templates, workflows, schedules, surveys, RBAC) for testing and demos
-- **Export** — Download assets in dependency order as structured JSON files
-- **Cleanup** — Remove sample or non-default objects in reverse dependency order
-- **Multi-connection** — Manage multiple AWX/AAP connections with source/destination roles
+- **Object Browser** — Browse any API resource type (organizations, credentials, job templates, schedules, ee's etc.) across connected AWX and AAP instances
+- **Migrate** — API-driven migration from AWX/AAP to AAP: preview with conflict detection, without Ansible cli dependency
+- **Populate** — On an empty platform, create sample objects for testing and demos
+- **Export** — Download API assets in dependency order as JSON files
+- **Cleanup** — Clean up an automation platform, except for default and required control plane objects
 
-## Quick Start
+## Local build
 
 ```bash
 # compiles frontend + backend into a go executable
