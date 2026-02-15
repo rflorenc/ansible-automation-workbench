@@ -1,6 +1,13 @@
 # Ansible Automation Workbench
 
-A single-binary web tool for managing AWX and AAP 2.x environments. Browse resources, populate sample data, export assets, migrate between platforms, and clean up — all from one interface.
+A web tool for managing AWX and AAP 2.x environments.  
+Browse resources, populate sample data, export assets and migrate between automation platforms, from a single interface.  
+
+## Screenshots
+
+| Connections | Operations | Object Browser |
+|:-----------:|:----------:|:--------------:|
+| ![Connections](doc/Connections.png) | ![Operations](doc/awx_cleanup.png) | ![Object Browser](doc/Object%20browser%20aap.png) |
 
 ## Features
 
@@ -14,7 +21,7 @@ A single-binary web tool for managing AWX and AAP 2.x environments. Browse resou
 ## Quick Start
 
 ```bash
-# Build (compiles frontend + backend into a single binary)
+# compiles frontend + backend into a go executable
 make build
 
 # Run
@@ -25,7 +32,7 @@ Open `http://localhost:8080` in your browser.
 
 ## Configuration
 
-Create a `config.yaml` file:
+Create a `config.yaml` file, or use the provided as a base:
 
 ```yaml
 listen: ":8080"
@@ -62,21 +69,6 @@ cd web && npm run dev
 
 # Terminal 2 — backend (proxies frontend from Vite)
 go run ./cmd/workbench/ --dev --config config.yaml
-```
-
-## Project Structure
-
-```
-cmd/workbench/         Entry point
-internal/
-  api/                 HTTP handlers and router
-  config/              CLI flags and YAML config
-  models/              Data types (connections, jobs, resources, migration)
-  migration/           Migration engine (export, preflight, import)
-  platform/            AWX and AAP platform implementations
-web/src/
-  pages/               Dashboard, Operations, Migrate, ObjectBrowser, Jobs
-  components/          ResourceTable, MigrationPreview, LogViewer
 ```
 
 ## Build Requirements

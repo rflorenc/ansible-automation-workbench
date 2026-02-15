@@ -155,8 +155,8 @@ export function Migrate() {
                     onChange={(_e, val) => setDestId(val)}
                     aria-label="Select destination connection"
                   >
-                    <FormSelectOption key="" value="" label="-- Select destination --" isDisabled />
-                    {connections.map(c => (
+                    <FormSelectOption key="" value="" label="-- Select destination (AAP only) --" isDisabled />
+                    {connections.filter(c => c.type === 'aap').map(c => (
                       <FormSelectOption
                         key={c.id}
                         value={c.id}
