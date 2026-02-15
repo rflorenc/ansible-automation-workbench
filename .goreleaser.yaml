@@ -2,7 +2,7 @@ version: 2
 
 before:
   hooks:
-    - "cd web && npm ci && npm run build"
+    - cmd: bash -c "cd web && npm ci && npm run build"
 
 builds:
   - main: ./cmd/workbench/
@@ -20,10 +20,10 @@ builds:
       - arm64
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: checksums.txt
