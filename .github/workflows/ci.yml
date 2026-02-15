@@ -28,4 +28,4 @@ jobs:
         run: go vet ./...
 
       - name: Build
-        run: CGO_ENABLED=0 go build -o /dev/null ./cmd/migration-tool/
+        run: CGO_ENABLED=0 go build -o /dev/null ./cmd/workbench/

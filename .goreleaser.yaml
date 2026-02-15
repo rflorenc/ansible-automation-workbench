@@ -8,8 +8,8 @@ before:
       dir: web
 
 builds:
-  - main: ./cmd/migration-tool/
-    binary: migration-tool
+  - main: ./cmd/workbench/
+    binary: autoworkbench
     env:
       - CGO_ENABLED=0
     ldflags:
