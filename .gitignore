@@ -1,0 +1,7 @@
+migration-tool
+migration-tool.exe
+web/dist/
+web/node_modules/
+migration-tool.yaml
+dist/
+.DS_Store

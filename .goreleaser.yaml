@@ -1,0 +1,39 @@
+version: 2
+
+before:
+  hooks:
+    - cmd: npm ci
+      dir: web
+    - cmd: npm run build
+      dir: web
+
+builds:
+  - main: ./cmd/migration-tool/
+    binary: migration-tool
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+release:
+  prerelease: auto
+
+changelog:
+  disable: true

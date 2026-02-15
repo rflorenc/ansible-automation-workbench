@@ -1,0 +1,32 @@
+export interface ResourceType {
+  name: string;
+  label: string;
+  api_path: string;
+}
+
+export interface Job {
+  id: string;
+  type: string;
+  connection_id: string;
+  status: 'running' | 'completed' | 'failed';
+  started_at: string;
+  finished_at?: string;
+  error?: string;
+  output: string[];
+}
+
+export interface MigrationResource {
+  source_id: number;
+  name: string;
+  type: string;
+  action: string; // "create", "skip_exists"
+  dest_id?: number;
+}
+
+export interface MigrationPreviewData {
+  source_id: string;
+  destination_id: string;
+  resources: Record<string, MigrationResource[]>;
+  warnings: string[];
+}
+

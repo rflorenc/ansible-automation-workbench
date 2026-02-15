@@ -1,0 +1,22 @@
+listen: ":8080"
+
+connections:
+  - name: Lab AWX
+    type: awx
+    role: source
+    scheme: http
+    host: awx.lab.local
+    port: 32000
+    username: admin
+    password: 
+    insecure: true
+
+  - name: Lab AAP
+    type: aap
+    role: destination
+    scheme: https
+    host: aap.lab.local
+    port: 443
+    username: admin
+    password: 
+    insecure: true
