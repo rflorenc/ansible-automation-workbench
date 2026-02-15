@@ -1,0 +1,22 @@
+listen: ":8080"
+
+connections:
+  - name: My AWX
+    type: awx
+    role: source
+    scheme: http
+    host: awx.example.com
+    port: 80
+    username: admin
+    password: secret
+    insecure: false
+
+  - name: My AAP
+    type: aap
+    role: destination
+    scheme: https
+    host: aap.example.com
+    port: 443
+    username: admin
+    password: secret
+    insecure: true
