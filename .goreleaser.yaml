@@ -1,9 +1,5 @@
 version: 2
 
-before:
-  hooks:
-    - cmd: bash -c "cd web && npm ci && npm run build"
-
 builds:
   - main: ./cmd/workbench/
     binary: autoworkbench
