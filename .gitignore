@@ -3,5 +3,6 @@ migration-tool.exe
 web/dist/
 web/node_modules/
 migration-tool.yaml
+autoworkbench
 dist/
 .DS_Store
