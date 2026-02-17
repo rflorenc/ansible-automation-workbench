@@ -57,6 +57,13 @@ cp config.yaml.example config.yaml   # edit with your connections
 - **Export** — Download API assets in dependency order as JSON files
 - **Cleanup** — Clean up an automation platform, except for default and required control plane objects
 
+## What this tool isn't for
+
+- Handling of RBAC model differences from older AWX versions
+- Provide self-service (non-admin) capabilities
+- Replace Configuration as Code workflows (e.g. `infra.aap_configuration`, GitOps) for production environments
+- Production-grade backup and restore — exports are JSON snapshots for convenience, not a DR solution
+
 ## Local build
 
 ```bash
