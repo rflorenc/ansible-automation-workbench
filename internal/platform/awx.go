@@ -47,6 +47,10 @@ func (p *AWXPlatform) Ping() error {
 	return p.client.Ping("/api/v2/ping/")
 }
 
+func (p *AWXPlatform) CheckAuth() error {
+	return p.client.Ping("/api/v2/organizations/?page_size=1")
+}
+
 func (p *AWXPlatform) GetResourceTypes() []models.ResourceType {
 	return awxResources
 }

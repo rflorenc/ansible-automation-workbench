@@ -25,6 +25,10 @@ cp config.yaml.example config.yaml   # edit with your connections
 |:-----------:|:----------:|:--------------:|
 | ![Connections](doc/Connections.png) | ![Operations](doc/awx_cleanup.png) | ![Object Browser](doc/Object%20browser%20aap.png) |
 
+| Populate | Preview Migration | Migration |
+|:--------:|:-----------------:|:---------:|
+| ![Populate](doc/Populate.png) | ![Preview Migration](doc/PreviewMigrate.png) | ![Migration](doc/Migrate.png) |
+
 ## Features
 
 - **Object Browser** — Browse any API resource type (organizations, credentials, job templates, schedules, ee's etc.) across connected AWX and AAP instances

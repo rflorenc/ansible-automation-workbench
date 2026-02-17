@@ -77,11 +77,31 @@ func main() {
 
 		// Verify connectivity and auth early
 		p := platform.NewPlatform(conn)
+		pingStatus, pingError := "ok", ""
 		if err := p.Ping(); err != nil {
-			fmt.Printf("  WARNING: %s: connection check failed: %v\n", conn.Name, err)
+			pingStatus = "error"
+			pingError = err.Error()
+			fmt.Printf("  PING FAILED: %s: %v\n", conn.Name, err)
 		} else {
-			fmt.Printf("  OK: %s: authenticated successfully\n", conn.Name)
+			fmt.Printf("  PING OK: %s: reachable\n", conn.Name)
 		}
+
+		authStatus, authError := "unknown", ""
+		if pingStatus == "ok" {
+			if conn.Username == "" || conn.Password == "" {
+				authStatus = "error"
+				authError = "no credentials configured"
+				fmt.Printf("  AUTH FAILED: %s: %s\n", conn.Name, authError)
+			} else if err := p.CheckAuth(); err != nil {
+				authStatus = "error"
+				authError = err.Error()
+				fmt.Printf("  AUTH FAILED: %s: %v\n", conn.Name, err)
+			} else {
+				authStatus = "ok"
+				fmt.Printf("  AUTH OK: %s: authenticated successfully\n", conn.Name)
+			}
+		}
+		server.Connections.SetHealth(conn.ID, pingStatus, pingError, authStatus, authError)
 	}
 
 	var webFS fs.FS

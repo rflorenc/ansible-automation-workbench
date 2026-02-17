@@ -51,6 +51,10 @@ func (p *AAPPlatform) Ping() error {
 	return p.client.Ping("/api/controller/v2/ping/")
 }
 
+func (p *AAPPlatform) CheckAuth() error {
+	return p.client.Ping("/api/controller/v2/organizations/?page_size=1")
+}
+
 func (p *AAPPlatform) GetResourceTypes() []models.ResourceType {
 	return aapResources
 }

@@ -31,6 +31,7 @@ export function Operations() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const loadConnections = useCallback(async () => {
@@ -41,18 +42,23 @@ export function Operations() {
   useEffect(() => { loadConnections(); }, [loadConnections]);
 
   const handleOperation = async (id: string, op: 'cleanup' | 'populate' | 'export') => {
-    let result: { job_id: string };
-    switch (op) {
-      case 'cleanup': result = await api.runCleanup(id); break;
-      case 'populate': result = await api.runPopulate(id); break;
-      case 'export': result = await api.runExport(id); break;
+    setError(null);
+    try {
+      let result: { job_id: string };
+      switch (op) {
+        case 'cleanup': result = await api.runCleanup(id); break;
+        case 'populate': result = await api.runPopulate(id); break;
+        case 'export': result = await api.runExport(id); break;
+      }
+      const conn = connections.find(c => c.id === id);
+      setActiveJobs(prev => [...prev, {
+        id: result.job_id,
+        connName: conn?.name || id,
+        operation: op,
+      }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
-    const conn = connections.find(c => c.id === id);
-    setActiveJobs(prev => [...prev, {
-      id: result.job_id,
-      connName: conn?.name || id,
-      operation: op,
-    }]);
   };
 
   const dismissJob = (jobId: string) => {
@@ -91,6 +97,28 @@ export function Operations() {
           </FlexItem>
         ))}
       </Flex>
+
+      {error && (
+        <Alert variant="danger" isInline title={error} style={{ marginBottom: 16 }} />
+      )}
+
+      {selected && selected.ping_status === 'error' && (
+        <Alert
+          variant="warning"
+          isInline
+          title={`Connection "${selected.name}" is unreachable${selected.ping_error ? ': ' + selected.ping_error : ''}`}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {selected && selected.auth_status === 'error' && (
+        <Alert
+          variant="warning"
+          isInline
+          title={`Connection "${selected.name}" authentication failed${selected.auth_error ? ': ' + selected.auth_error : ''}`}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       {selected && (
         <Card>

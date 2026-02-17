@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -18,12 +19,25 @@ type Connection struct {
 	Port     int    `json:"port"`
 	Username string `json:"username"`
 	Password string `json:"password"`
-	Insecure bool   `json:"insecure"` // skip TLS verification
+	Insecure    bool       `json:"insecure"`                // skip TLS verification
+	PingStatus  string     `json:"ping_status"`             // "unknown", "ok", "error"
+	PingError   string     `json:"ping_error,omitempty"`
+	AuthStatus  string     `json:"auth_status"`             // "unknown", "ok", "error"
+	AuthError   string     `json:"auth_error,omitempty"`
+	LastChecked *time.Time `json:"last_checked,omitempty"`
 }
 
 // BaseURL returns the full base URL for this connection.
 func (c *Connection) BaseURL() string {
 	return fmt.Sprintf("%s://%s:%d", c.Scheme, c.Host, c.Port)
+}
+
+// MaskedPassword returns a mask if password is set, empty string otherwise.
+func (c *Connection) MaskedPassword() string {
+	if c.Password != "" {
+		return "••••••••"
+	}
+	return ""
 }
 
 // ConnectionStore is an in-memory thread-safe store for connections.
@@ -42,7 +56,25 @@ func (s *ConnectionStore) Create(c *Connection) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c.ID = uuid.New().String()
+	c.PingStatus = "unknown"
+	c.AuthStatus = "unknown"
 	s.conns[c.ID] = c
+}
+
+// SetHealth updates the ping and auth status of a connection.
+func (s *ConnectionStore) SetHealth(id, pingStatus, pingError, authStatus, authError string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	conn, ok := s.conns[id]
+	if !ok {
+		return
+	}
+	now := time.Now()
+	conn.PingStatus = pingStatus
+	conn.PingError = pingError
+	conn.AuthStatus = authStatus
+	conn.AuthError = authError
+	conn.LastChecked = &now
 }
 
 // Get returns a connection by ID, or nil if not found.

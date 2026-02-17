@@ -22,13 +22,12 @@ import {
 import { Dropdown, DropdownItem, KebabToggle } from '@patternfly/react-core/deprecated';
 import { api } from '../api/client';
 import { ConnectionForm } from '../components/ConnectionForm';
-import type { Connection, TestResult } from '../types/connection';
+import type { Connection } from '../types/connection';
 
 export function Dashboard() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editConn, setEditConn] = useState<Connection | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   const loadConnections = useCallback(async () => {
@@ -55,8 +54,8 @@ export function Dashboard() {
   };
 
   const handleTest = async (id: string) => {
-    const result = await api.testConnection(id);
-    setTestResults(prev => ({ ...prev, [id]: result }));
+    await api.testConnection(id);
+    loadConnections();
   };
 
   const dropdownItems = (conn: Connection) => [
@@ -67,8 +66,23 @@ export function Dashboard() {
   const sources = connections.filter(c => c.role === 'source');
   const destinations = connections.filter(c => c.role === 'destination');
 
+  const pingLabel = (conn: Connection) => {
+    switch (conn.ping_status) {
+      case 'ok': return <Label color="green" isCompact>Ping OK</Label>;
+      case 'error': return <Label color="red" isCompact>Unreachable</Label>;
+      default: return <Label color="grey" isCompact>Ping ?</Label>;
+    }
+  };
+
+  const authLabel = (conn: Connection) => {
+    switch (conn.auth_status) {
+      case 'ok': return <Label color="green" isCompact>Auth OK</Label>;
+      case 'error': return <Label color="red" isCompact>Auth Failed</Label>;
+      default: return <Label color="grey" isCompact>Auth ?</Label>;
+    }
+  };
+
   const renderCard = (conn: Connection) => {
-    const testResult = testResults[conn.id];
     return (
       <Card key={conn.id}>
         <CardHeader
@@ -91,13 +105,8 @@ export function Dashboard() {
               <SplitItem>
                 <Label color={conn.type === 'awx' ? 'blue' : 'purple'}>{conn.type.toUpperCase()}</Label>
               </SplitItem>
-              {testResult && (
-                <SplitItem>
-                  <Label color={testResult.ok ? 'green' : 'red'}>
-                    {testResult.ok ? 'Connected' : 'Failed'}
-                  </Label>
-                </SplitItem>
-              )}
+              <SplitItem>{pingLabel(conn)}</SplitItem>
+              <SplitItem>{authLabel(conn)}</SplitItem>
             </Split>
           </CardTitle>
         </CardHeader>
@@ -118,8 +127,11 @@ export function Dashboard() {
               <DescriptionListDescription>{conn.insecure ? 'Off' : 'On'}</DescriptionListDescription>
             </DescriptionListGroup>
           </DescriptionList>
-          {testResult && !testResult.ok && (
-            <Alert variant="danger" isInline isPlain title={testResult.error} style={{ marginTop: 8 }} />
+          {conn.ping_status === 'error' && conn.ping_error && (
+            <Alert variant="danger" isInline isPlain title={conn.ping_error} style={{ marginTop: 8 }} />
+          )}
+          {conn.auth_status === 'error' && conn.auth_error && (
+            <Alert variant="danger" isInline isPlain title={conn.auth_error} style={{ marginTop: 8 }} />
           )}
         </CardBody>
         <CardFooter>

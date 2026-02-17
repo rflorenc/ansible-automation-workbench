@@ -40,12 +40,20 @@ func (s *Server) CreateConnection(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.Connections.Create(&conn)
-	writeJSON(w, http.StatusCreated, conn)
+	resp := conn
+	resp.Password = conn.MaskedPassword()
+	writeJSON(w, http.StatusCreated, resp)
 }
 
 func (s *Server) ListConnections(w http.ResponseWriter, r *http.Request) {
 	conns := s.Connections.List()
-	writeJSON(w, http.StatusOK, conns)
+	// Return copies with masked passwords
+	masked := make([]models.Connection, len(conns))
+	for i, c := range conns {
+		masked[i] = *c
+		masked[i].Password = c.MaskedPassword()
+	}
+	writeJSON(w, http.StatusOK, masked)
 }
 
 func (s *Server) UpdateConnection(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +68,9 @@ func (s *Server) UpdateConnection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "connection not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, conn)
+	resp := conn
+	resp.Password = conn.MaskedPassword()
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) DeleteConnection(w http.ResponseWriter, r *http.Request) {
@@ -80,15 +90,33 @@ func (s *Server) TestConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := platform.NewPlatform(conn)
-	err := p.Ping()
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"ok":    false,
-			"error": err.Error(),
-		})
-		return
+
+	// Step 1: connectivity check (unauthenticated)
+	pingStatus, pingError := "ok", ""
+	if err := p.Ping(); err != nil {
+		pingStatus = "error"
+		pingError = err.Error()
 	}
+
+	// Step 2: credential check (authenticated)
+	authStatus, authError := "unknown", ""
+	if pingStatus == "ok" {
+		if conn.Username == "" || conn.Password == "" {
+			authStatus = "error"
+			authError = "no credentials configured"
+		} else if err := p.CheckAuth(); err != nil {
+			authStatus = "error"
+			authError = err.Error()
+		} else {
+			authStatus = "ok"
+		}
+	}
+
+	s.Connections.SetHealth(id, pingStatus, pingError, authStatus, authError)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"ok": true,
+		"ping_ok":    pingStatus == "ok",
+		"ping_error": pingError,
+		"auth_ok":    authStatus == "ok",
+		"auth_error": authError,
 	})
 }

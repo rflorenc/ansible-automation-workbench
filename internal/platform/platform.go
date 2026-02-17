@@ -4,8 +4,11 @@ import "github.com/rflorenc/ansible-automation-workbench/internal/models"
 
 // Platform defines operations available on an automation platform (AWX or AAP).
 type Platform interface {
-	// Ping tests connectivity. Returns nil if reachable.
+	// Ping tests connectivity (unauthenticated). Returns nil if reachable.
 	Ping() error
+
+	// CheckAuth verifies credentials. Returns nil if authenticated.
+	CheckAuth() error
 
 	// ListResources returns all objects of a given resource type.
 	ListResources(resourceType string) ([]models.Resource, error)
