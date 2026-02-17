@@ -2,22 +2,42 @@
 
 A web tool for managing AWX and AAP 2.x environments.
 Browse resources, populate sample data, export assets and migrate between automation platforms, from a single interface.
-Additionally it can be useful as a support tool for Ansible workshops, demos or just for better understading the APIs.
+Additionally it can be useful as a support tool for Ansible workshops, demos or just for better understanding the APIs.
 
-## Download and Usage
+## Download
 
 Pre-built binaries for Linux, macOS and Windows are available at [Releases](https://github.com/rflorenc/ansible-automation-workbench/releases).  
 
+## Usage
+
+### Linux (x86)
+
 ```bash
-release=https://github.com/rflorenc/ansible-automation-workbench/releases/latest/download/ansible-automation-workbench_0.1.0_linux_amd64.tar.gz  
+RELEASE=0.2.0
+ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/latest/download/ansible-automation-workbench_${RELEASE}_linux_amd64.tar.gz
 
 mkdir -p /tmp/workbench && cd /tmp/workbench
-curl -sLO $release
+curl -sLO $ARTIFACT
 tar xzf ansible-automation-workbench_*.tar.gz
 
 cp config.yaml.example config.yaml   # edit with your connections
 ./autoworkbench --config config.yaml
 ```
+
+### MacOS (arm64)
+
+```bash
+RELEASE=0.2.0
+ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/download/v0.2.0/ansible-automation-workbench_${RELEASE}_darwin_arm64.tar.gz
+
+mkdir -p /tmp/workbench && cd /tmp/workbench
+curl -sLO $ARTIFACT
+tar xzf ansible-automation-workbench_*.tar.gz
+
+cp config.yaml.example config.yaml   # edit with your connections
+./autoworkbench --config config.yaml
+```
+
 
 ## Screenshots
 
