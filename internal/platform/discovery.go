@@ -17,15 +17,10 @@ type PingResponse struct {
 
 // APIRootResponse holds the parsed /api/ response.
 // AWX format: {"current_version": "/api/v2/", ...}
-// AAP format: {"apis": {"controller": {"prefix": "/api/controller/", ...}}, ...}
+// AAP format: {"apis": {"controller": "/api/controller/", ...}}
 type APIRootResponse struct {
-	CurrentVersion string                        `json:"current_version"` // AWX
-	APIs           map[string]APIRootServiceEntry `json:"apis"`           // AAP
-}
-
-// APIRootServiceEntry represents a service entry in the AAP /api/ response.
-type APIRootServiceEntry struct {
-	Prefix string `json:"prefix"`
+	CurrentVersion string            `json:"current_version"` // AWX
+	APIs           map[string]string `json:"apis"`            // AAP: service name → prefix path
 }
 
 // ParsePingResponse extracts the version from a /ping/ JSON response body.
@@ -66,8 +61,8 @@ func DetectAPIPrefix(root *APIRootResponse) string {
 		return prefix
 	}
 	// AAP format: look for controller in apis
-	if controller, ok := root.APIs["controller"]; ok && controller.Prefix != "" {
-		prefix := controller.Prefix
+	if controllerPrefix, ok := root.APIs["controller"]; ok && controllerPrefix != "" {
+		prefix := controllerPrefix
 		if !strings.HasSuffix(prefix, "/") {
 			prefix += "/"
 		}

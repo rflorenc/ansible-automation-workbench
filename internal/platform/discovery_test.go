@@ -59,7 +59,7 @@ func TestParseAPIRoot_AWX(t *testing.T) {
 }
 
 func TestParseAPIRoot_AAP(t *testing.T) {
-	body := []byte(`{"apis":{"controller":{"prefix":"/api/controller/"},"gateway":{"prefix":"/api/gateway/"}}}`)
+	body := []byte(`{"description":"AAP gateway REST API","apis":{"gateway":"/api/gateway/","controller":"/api/controller/","eda":"/api/eda/"}}`)
 	resp, err := ParseAPIRoot(body)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -67,8 +67,8 @@ func TestParseAPIRoot_AAP(t *testing.T) {
 	if _, ok := resp.APIs["controller"]; !ok {
 		t.Fatal("expected 'controller' in APIs map")
 	}
-	if resp.APIs["controller"].Prefix != "/api/controller/" {
-		t.Errorf("APIs[controller].Prefix = %q, want %q", resp.APIs["controller"].Prefix, "/api/controller/")
+	if resp.APIs["controller"] != "/api/controller/" {
+		t.Errorf("APIs[controller] = %q, want %q", resp.APIs["controller"], "/api/controller/")
 	}
 }
 
@@ -90,8 +90,8 @@ func TestDetectAPIPrefix_AWX_NoTrailingSlash(t *testing.T) {
 
 func TestDetectAPIPrefix_AAP(t *testing.T) {
 	root := &APIRootResponse{
-		APIs: map[string]APIRootServiceEntry{
-			"controller": {Prefix: "/api/controller/"},
+		APIs: map[string]string{
+			"controller": "/api/controller/",
 		},
 	}
 	got := DetectAPIPrefix(root)
