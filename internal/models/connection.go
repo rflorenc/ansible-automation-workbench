@@ -20,6 +20,8 @@ type Connection struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Insecure    bool       `json:"insecure"`                // skip TLS verification
+	Version     string     `json:"version,omitempty"`       // detected platform version, e.g. "23.4.0" or "4.7.8"
+	APIPrefix   string     `json:"api_prefix,omitempty"`    // detected API prefix, e.g. "/api/v2/" or "/api/controller/v2/"
 	PingStatus  string     `json:"ping_status"`             // "unknown", "ok", "error"
 	PingError   string     `json:"ping_error,omitempty"`
 	AuthStatus  string     `json:"auth_status"`             // "unknown", "ok", "error"
@@ -75,6 +77,18 @@ func (s *ConnectionStore) SetHealth(id, pingStatus, pingError, authStatus, authE
 	conn.AuthStatus = authStatus
 	conn.AuthError = authError
 	conn.LastChecked = &now
+}
+
+// SetVersion updates the detected version and API prefix of a connection.
+func (s *ConnectionStore) SetVersion(id, version, apiPrefix string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	conn, ok := s.conns[id]
+	if !ok {
+		return
+	}
+	conn.Version = version
+	conn.APIPrefix = apiPrefix
 }
 
 // Get returns a connection by ID, or nil if not found.

@@ -143,6 +143,34 @@ func TestConnectionStore_SetHealth(t *testing.T) {
 	store.SetHealth("nonexistent", "ok", "", "ok", "")
 }
 
+func TestConnectionStore_SetVersion(t *testing.T) {
+	store := NewConnectionStore()
+	conn := &Connection{Name: "test", Host: "localhost"}
+	store.Create(conn)
+
+	store.SetVersion(conn.ID, "23.4.0", "/api/v2/")
+	got := store.Get(conn.ID)
+	if got.Version != "23.4.0" {
+		t.Errorf("Version = %q, want %q", got.Version, "23.4.0")
+	}
+	if got.APIPrefix != "/api/v2/" {
+		t.Errorf("APIPrefix = %q, want %q", got.APIPrefix, "/api/v2/")
+	}
+
+	// Update to new values
+	store.SetVersion(conn.ID, "4.7.8", "/api/controller/v2/")
+	got = store.Get(conn.ID)
+	if got.Version != "4.7.8" {
+		t.Errorf("Version = %q, want %q", got.Version, "4.7.8")
+	}
+	if got.APIPrefix != "/api/controller/v2/" {
+		t.Errorf("APIPrefix = %q, want %q", got.APIPrefix, "/api/controller/v2/")
+	}
+
+	// SetVersion on missing ID should not panic
+	store.SetVersion("nonexistent", "1.0.0", "/api/v2/")
+}
+
 func TestConnectionStore_Concurrent(t *testing.T) {
 	store := NewConnectionStore()
 	var wg sync.WaitGroup

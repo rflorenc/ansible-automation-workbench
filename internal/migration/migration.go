@@ -28,9 +28,13 @@ type ExportedData struct {
 	TeamUsers       map[int][]string // team source ID → usernames
 }
 
-// apiPrefix returns the API path prefix for a connection type.
-func apiPrefix(connType string) string {
-	if connType == "aap" {
+// apiPrefix returns the API path prefix for a connection.
+// Uses the detected APIPrefix if available, otherwise falls back to defaults.
+func apiPrefix(conn *models.Connection) string {
+	if conn.APIPrefix != "" {
+		return conn.APIPrefix
+	}
+	if conn.Type == "aap" {
 		return "/api/controller/v2/"
 	}
 	return "/api/v2/"
@@ -44,14 +48,14 @@ func Preview(src, dst *models.Connection, logger func(string)) (*models.Migratio
 
 	// Verify connectivity
 	logger("Checking source connectivity...")
-	srcPrefix := apiPrefix(src.Type)
+	srcPrefix := apiPrefix(src)
 	if _, err := srcClient.Get(srcPrefix+"organizations/", nil); err != nil {
 		return nil, nil, fmt.Errorf("source connection failed: %w", err)
 	}
 	logger("Source OK: " + src.Name)
 
 	logger("Checking destination connectivity...")
-	dstPrefix := apiPrefix(dst.Type)
+	dstPrefix := apiPrefix(dst)
 	if _, err := dstClient.Get(dstPrefix+"organizations/", nil); err != nil {
 		return nil, nil, fmt.Errorf("destination connection failed: %w", err)
 	}
@@ -96,7 +100,7 @@ func Preview(src, dst *models.Connection, logger func(string)) (*models.Migratio
 // Run imports the previously exported data into the destination.
 func Run(dst *models.Connection, data *ExportedData, preview *models.MigrationPreview, logger func(string)) error {
 	dstClient := platform.NewClient(dst)
-	dstPrefix := apiPrefix(dst.Type)
+	dstPrefix := apiPrefix(dst)
 
 	logger("=== Starting migration to " + dst.Name + " ===")
 	logger("")

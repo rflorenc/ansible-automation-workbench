@@ -103,7 +103,9 @@ export function Dashboard() {
             <Split hasGutter>
               <SplitItem>{conn.name}</SplitItem>
               <SplitItem>
-                <Label color={conn.type === 'awx' ? 'blue' : 'purple'}>{conn.type.toUpperCase()}</Label>
+                <Label color={conn.type === 'awx' ? 'blue' : 'purple'}>
+                  {conn.type.toUpperCase()}{conn.version ? ` v${conn.version}` : ''}
+                </Label>
               </SplitItem>
               <SplitItem>{pingLabel(conn)}</SplitItem>
               <SplitItem>{authLabel(conn)}</SplitItem>

@@ -27,14 +27,28 @@ type Platform interface {
 }
 
 // NewPlatform creates the appropriate Platform implementation for a connection.
+// If the connection has a detected APIPrefix that differs from the default,
+// resource paths are rewritten accordingly. No HTTP calls are made here.
 func NewPlatform(conn *models.Connection) Platform {
 	client := NewClient(conn)
 	switch conn.Type {
 	case "awx":
-		return NewAWXPlatform(client)
+		p := NewAWXPlatform(client)
+		p.version = conn.Version
+		if conn.APIPrefix != "" && conn.APIPrefix != "/api/v2/" {
+			p.resources = rewritePaths(awxResources, "/api/v2/", conn.APIPrefix)
+		}
+		return p
 	case "aap":
-		return NewAAPPlatform(client)
+		p := NewAAPPlatform(client)
+		p.version = conn.Version
+		if conn.APIPrefix != "" && conn.APIPrefix != "/api/controller/v2/" {
+			p.resources = rewritePaths(aapResources, "/api/controller/v2/", conn.APIPrefix)
+		}
+		return p
 	default:
-		return NewAWXPlatform(client)
+		p := NewAWXPlatform(client)
+		p.version = conn.Version
+		return p
 	}
 }

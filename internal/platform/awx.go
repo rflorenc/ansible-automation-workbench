@@ -35,7 +35,9 @@ var awxResources = []models.ResourceType{
 
 // AWXPlatform implements Platform for AWX instances.
 type AWXPlatform struct {
-	client *Client
+	client    *Client
+	resources []models.ResourceType // nil = use static awxResources
+	version   string                // detected platform version
 }
 
 // NewAWXPlatform creates a new AWX Platform.
@@ -52,11 +54,24 @@ func (p *AWXPlatform) CheckAuth() error {
 }
 
 func (p *AWXPlatform) GetResourceTypes() []models.ResourceType {
-	return awxResources
+	registry := awxResources
+	if p.resources != nil {
+		registry = p.resources
+	}
+	if p.version == "" {
+		return registry
+	}
+	var filtered []models.ResourceType
+	for _, r := range registry {
+		if VersionAtLeast(p.version, r.MinVersion) {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
 }
 
 func (p *AWXPlatform) ListResources(resourceType string) ([]models.Resource, error) {
-	for _, rt := range awxResources {
+	for _, rt := range p.GetResourceTypes() {
 		if rt.Name == resourceType {
 			return p.client.GetAll(rt.APIPath)
 		}

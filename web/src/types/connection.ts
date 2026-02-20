@@ -9,6 +9,8 @@ export interface Connection {
   username: string;
   password: string;
   insecure: boolean;
+  version?: string;
+  api_prefix?: string;
   ping_status?: 'unknown' | 'ok' | 'error';
   ping_error?: string;
   auth_status?: 'unknown' | 'ok' | 'error';
