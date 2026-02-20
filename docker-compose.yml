@@ -1,0 +1,9 @@
+services:
+  workbench:
+    build: .
+    image: quay.io/rlourencc/ansible-automation-workbench:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+    restart: unless-stopped

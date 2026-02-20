@@ -1,0 +1,9 @@
+.git
+dist/
+web/node_modules/
+web/dist/
+autoworkbench
+.config.yaml
+*.exe
+.DS_Store
+deploy/

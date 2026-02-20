@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoworkbench
+  labels:
+    app: autoworkbench
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoworkbench
+  template:
+    metadata:
+      labels:
+        app: autoworkbench
+    spec:
+      containers:
+        - name: autoworkbench
+          image: quay.io/rlourencc/ansible-automation-workbench:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /config/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      volumes:
+        - name: config
+          configMap:
+            name: autoworkbench-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoworkbench
+  labels:
+    app: autoworkbench
+spec:
+  type: ClusterIP
+  selector:
+    app: autoworkbench
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
