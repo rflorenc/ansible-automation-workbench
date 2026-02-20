@@ -1,43 +1,8 @@
 # Ansible Automation Workbench
 
-A web tool for managing AWX and AAP 2.x environments.
-Browse resources, populate sample data, export assets and migrate between automation platforms, from a single interface.
-Additionally it can be useful as a support tool for Ansible workshops, demos or just for better understanding the APIs.
-
-## Download
-
-Pre-built binaries for Linux, macOS and Windows are available at [Releases](https://github.com/rflorenc/ansible-automation-workbench/releases).  
-
-## Usage
-
-### Linux (x86)
-
-```bash
-RELEASE=0.2.0
-ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/latest/download/ansible-automation-workbench_${RELEASE}_linux_amd64.tar.gz
-
-mkdir -p /tmp/workbench && cd /tmp/workbench
-curl -sLO $ARTIFACT
-tar xzf ansible-automation-workbench_*.tar.gz
-
-cp config.yaml.example config.yaml   # edit with your connections
-./autoworkbench --config config.yaml
-```
-
-### MacOS (arm64)
-
-```bash
-RELEASE=0.2.0
-ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/download/v0.2.0/ansible-automation-workbench_${RELEASE}_darwin_arm64.tar.gz
-
-mkdir -p /tmp/workbench && cd /tmp/workbench
-curl -sLO $ARTIFACT
-tar xzf ansible-automation-workbench_*.tar.gz
-
-cp config.yaml.example config.yaml   # edit with your connections
-./autoworkbench --config config.yaml
-```
-
+A web tool for managing AWX and AAP 2.x environments.  
+Browse resources, populate sample data, export assets and migrate between automation platforms, from a single interface.  
+Additionally it can be useful as a support tool for Ansible workshops, demos or just for better understanding the APIs.  
 
 ## Screenshots
 
@@ -63,6 +28,77 @@ cp config.yaml.example config.yaml   # edit with your connections
 - Provide self-service (non-admin) capabilities
 - Replace Configuration as Code workflows (e.g. `infra.aap_configuration`, GitOps) for production environments
 - Production-grade backup and restore — exports are JSON snapshots for convenience, not a DR solution
+
+## Download
+
+Pre-built binaries for Linux, macOS and Windows are available at [Releases](https://github.com/rflorenc/ansible-automation-workbench/releases).  
+
+## Usage
+
+### Binaries
+#### Linux (x86)
+
+```bash
+RELEASE=0.3.0
+ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/latest/download/ansible-automation-workbench_${RELEASE}_linux_amd64.tar.gz
+
+mkdir -p /tmp/workbench && cd /tmp/workbench
+curl -sLO $ARTIFACT
+tar xzf ansible-automation-workbench_*.tar.gz
+
+cp config.yaml.example config.yaml   # edit with your connections
+./autoworkbench --config config.yaml
+```
+
+#### MacOS (arm64)
+
+```bash
+RELEASE=0.3.0
+ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/download/v0.3.0/ansible-automation-workbench_${RELEASE}_darwin_arm64.tar.gz
+
+mkdir -p /tmp/workbench && cd /tmp/workbench
+curl -sLO $ARTIFACT
+tar xzf ansible-automation-workbench_*.tar.gz
+
+cp config.yaml.example config.yaml   # edit with your connections
+./autoworkbench --config config.yaml
+```
+
+### Container images / K8s / OpenShift
+
+Container images are published to [quay.io/rlourencc/ansible-automation-workbench](https://quay.io/repository/rlourencc/ansible-automation-workbench) on every release.
+
+#### Docker / Podman
+
+```bash
+# Create a config.yaml with your connections (see Configuration section below)
+cp config.yaml.example config.yaml
+
+# Run
+docker run --rm -p 8080:8080 -v ./config.yaml:/config/config.yaml:ro \
+  quay.io/rlourencc/ansible-automation-workbench:0.3.0
+```
+
+#### Docker Compose
+
+```bash
+cp config.yaml.example config.yaml   # edit with your connections
+docker-compose up
+```
+
+#### Kubernetes / OpenShift
+
+```bash
+# Edit the ConfigMap with your connections
+kubectl edit -k deploy/k8s/configmap.yaml
+
+# Deploy
+kubectl apply -k deploy/k8s/
+
+# OpenShift: expose the service
+oc expose svc/autoworkbench
+```
+
 
 ## Local build
 
