@@ -27,5 +27,8 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Test
+        run: go test ./...
+
       - name: Build
         run: CGO_ENABLED=0 go build -o /dev/null ./cmd/workbench/

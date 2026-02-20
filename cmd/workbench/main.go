@@ -77,6 +77,7 @@ func main() {
 
 		// Verify connectivity and auth early
 		p := platform.NewPlatform(conn)
+		client := platform.NewClient(conn)
 		pingStatus, pingError := "ok", ""
 		if err := p.Ping(); err != nil {
 			pingStatus = "error"
@@ -99,6 +100,15 @@ func main() {
 			} else {
 				authStatus = "ok"
 				fmt.Printf("  AUTH OK: %s: authenticated successfully\n", conn.Name)
+
+				// Discovery: detect version and API prefix (only after auth succeeds)
+				pingResp, err := client.PingWithVersion(platform.PingPath(conn.Type))
+				if err == nil && pingResp.Version != "" {
+					conn.Version = pingResp.Version
+					server.Connections.SetVersion(conn.ID, pingResp.Version, "")
+					fmt.Printf("  VERSION: %s: %s\n", conn.Name, pingResp.Version)
+				}
+				platform.DiscoverAndStore(client, conn, server.Connections)
 			}
 		}
 		server.Connections.SetHealth(conn.ID, pingStatus, pingError, authStatus, authError)

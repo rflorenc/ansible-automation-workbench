@@ -90,6 +90,7 @@ func (s *Server) TestConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := platform.NewPlatform(conn)
+	client := platform.NewClient(conn)
 
 	// Step 1: connectivity check (unauthenticated)
 	pingStatus, pingError := "ok", ""
@@ -100,6 +101,7 @@ func (s *Server) TestConnection(w http.ResponseWriter, r *http.Request) {
 
 	// Step 2: credential check (authenticated)
 	authStatus, authError := "unknown", ""
+	version := conn.Version
 	if pingStatus == "ok" {
 		if conn.Username == "" || conn.Password == "" {
 			authStatus = "error"
@@ -109,6 +111,15 @@ func (s *Server) TestConnection(w http.ResponseWriter, r *http.Request) {
 			authError = err.Error()
 		} else {
 			authStatus = "ok"
+
+			// Step 3: discovery (only after auth succeeds)
+			pingResp, err := client.PingWithVersion(platform.PingPath(conn.Type))
+			if err == nil && pingResp.Version != "" {
+				version = pingResp.Version
+				conn.Version = version
+				s.Connections.SetVersion(id, version, "")
+			}
+			platform.DiscoverAndStore(client, conn, s.Connections)
 		}
 	}
 
@@ -118,5 +129,6 @@ func (s *Server) TestConnection(w http.ResponseWriter, r *http.Request) {
 		"ping_error": pingError,
 		"auth_ok":    authStatus == "ok",
 		"auth_error": authError,
+		"version":    version,
 	})
 }

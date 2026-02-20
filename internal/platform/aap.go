@@ -39,7 +39,9 @@ var aapResources = []models.ResourceType{
 
 // AAPPlatform implements Platform for AAP 2.x (controller + gateway).
 type AAPPlatform struct {
-	client *Client
+	client    *Client
+	resources []models.ResourceType // nil = use static aapResources
+	version   string                // detected platform version
 }
 
 // NewAAPPlatform creates a new AAP Platform.
@@ -56,11 +58,24 @@ func (p *AAPPlatform) CheckAuth() error {
 }
 
 func (p *AAPPlatform) GetResourceTypes() []models.ResourceType {
-	return aapResources
+	registry := aapResources
+	if p.resources != nil {
+		registry = p.resources
+	}
+	if p.version == "" {
+		return registry
+	}
+	var filtered []models.ResourceType
+	for _, r := range registry {
+		if VersionAtLeast(p.version, r.MinVersion) {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
 }
 
 func (p *AAPPlatform) ListResources(resourceType string) ([]models.Resource, error) {
-	for _, rt := range aapResources {
+	for _, rt := range p.GetResourceTypes() {
 		if rt.Name == resourceType {
 			return p.client.GetAll(rt.APIPath)
 		}
