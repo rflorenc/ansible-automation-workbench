@@ -1,8 +1,10 @@
-.PHONY: build dev frontend backend clean snapshot release
+.PHONY: build dev frontend backend clean snapshot release container-build container-run container-push
 
 export PATH := $(HOME)/.local/node/bin:$(HOME)/.local/go/bin:$(PATH)
 GO := $(shell which go 2>/dev/null || echo $(HOME)/.local/go/bin/go)
 NPM := $(shell which npm 2>/dev/null || echo $(HOME)/.local/node/bin/npm)
+CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
+IMAGE ?= quay.io/rlourencc/ansible-automation-workbench
 
 VERSION ?= dev
 COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -33,3 +35,14 @@ release:
 
 clean:
 	rm -rf web/dist web/node_modules autoworkbench dist/
+
+container-build:
+	$(CONTAINER_ENGINE) build -t $(IMAGE):$(VERSION) -t $(IMAGE):latest \
+		--build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --build-arg DATE=$(DATE) .
+
+container-run:
+	$(CONTAINER_ENGINE) run --rm --network host -v $(PWD)/config.yaml:/config/config.yaml:ro $(IMAGE):$(VERSION)
+
+container-push:
+	$(CONTAINER_ENGINE) push $(IMAGE):$(VERSION)
+	$(CONTAINER_ENGINE) push $(IMAGE):latest

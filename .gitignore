@@ -5,4 +5,5 @@ web/node_modules/
 migration-tool.yaml
 autoworkbench
 dist/
+.config.yaml
 .DS_Store
