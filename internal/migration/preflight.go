@@ -10,19 +10,45 @@ import (
 // Resource types in the order they appear in the preview.
 var previewOrder = []string{
 	"organizations", "teams", "users", "credential_types", "credentials",
-	"projects", "inventories", "job_templates", "workflow_job_templates", "schedules",
+	"projects", "inventories", "hosts", "groups",
+	"job_templates", "workflow_job_templates", "schedules",
 }
 
 // preflightCheck examines the destination for each exported resource and classifies
 // the action as "create" or "skip_exists".
 func preflightCheck(data *ExportedData, dst *platform.Client, prefix string, logger func(string)) (*models.MigrationPreview, error) {
 	preview := &models.MigrationPreview{
-		Resources: make(map[string][]models.MigrationResource),
+		Resources:   make(map[string][]models.MigrationResource),
+		HostCounts:  make(map[string]int),
+		GroupCounts: make(map[string]int),
+	}
+
+	// Build inventory name lookup
+	invNames := make(map[int]string)
+	for _, inv := range data.Inventories {
+		invNames[resourceID(inv)] = resourceName(inv)
 	}
 
 	for _, rt := range previewOrder {
 		items := dataForType(data, rt)
 		if len(items) == 0 {
+			continue
+		}
+
+		// Hosts and groups are listed without destination checks (too expensive for 1500+ hosts)
+		if rt == "hosts" || rt == "groups" {
+			logger(fmt.Sprintf("Listing %s (existence checked at import time)...", rt))
+			for _, item := range items {
+				name := resourceName(item)
+				srcID := resourceID(item)
+				mr := models.MigrationResource{
+					SourceID: srcID,
+					Name:     name,
+					Type:     rt,
+					Action:   "create",
+				}
+				preview.Resources[rt] = append(preview.Resources[rt], mr)
+			}
 			continue
 		}
 
@@ -61,6 +87,20 @@ func preflightCheck(data *ExportedData, dst *platform.Client, prefix string, log
 		}
 	}
 
+	// Compute host/group counts per inventory
+	for srcInvID, hosts := range data.Hosts {
+		invName := invNames[srcInvID]
+		if invName != "" {
+			preview.HostCounts[invName] = len(hosts)
+		}
+	}
+	for srcInvID, groups := range data.Groups {
+		invName := invNames[srcInvID]
+		if invName != "" {
+			preview.GroupCounts[invName] = len(groups)
+		}
+	}
+
 	// Warnings
 	if len(data.Credentials) > 0 {
 		preview.Warnings = append(preview.Warnings,
@@ -69,6 +109,10 @@ func preflightCheck(data *ExportedData, dst *platform.Client, prefix string, log
 	if len(data.Users) > 0 {
 		preview.Warnings = append(preview.Warnings,
 			"User passwords cannot be exported. Users will be created with a placeholder password (changeme!) and must be reset.")
+	}
+	if totalHosts := len(preview.Resources["hosts"]); totalHosts > 0 {
+		preview.Warnings = append(preview.Warnings,
+			fmt.Sprintf("Host existence is checked at import time (not during preview). %d hosts will be checked individually.", totalHosts))
 	}
 
 	return preview, nil
@@ -91,6 +135,18 @@ func dataForType(data *ExportedData, typeName string) []models.Resource {
 		return data.Projects
 	case "inventories":
 		return data.Inventories
+	case "hosts":
+		var all []models.Resource
+		for _, hosts := range data.Hosts {
+			all = append(all, hosts...)
+		}
+		return all
+	case "groups":
+		var all []models.Resource
+		for _, groups := range data.Groups {
+			all = append(all, groups...)
+		}
+		return all
 	case "job_templates":
 		return data.JobTemplates
 	case "workflow_job_templates":

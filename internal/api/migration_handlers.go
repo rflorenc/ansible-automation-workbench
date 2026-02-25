@@ -126,9 +126,10 @@ func (s *Server) GetMigrationPreview(w http.ResponseWriter, r *http.Request) {
 // MigrationRunHandler starts the import from a previously cached preview.
 func (s *Server) MigrationRunHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		SourceID      string `json:"source_id"`
-		DestinationID string `json:"destination_id"`
-		PreviewJobID  string `json:"preview_job_id"`
+		SourceID      string              `json:"source_id"`
+		DestinationID string              `json:"destination_id"`
+		PreviewJobID  string              `json:"preview_job_id"`
+		Exclude       map[string][]string `json:"exclude"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -150,10 +151,14 @@ func (s *Server) MigrationRunHandler(w http.ResponseWriter, r *http.Request) {
 	job := s.Jobs.Create("migration-run", req.DestinationID)
 
 	go func() {
-		err := migration.Run(dst, cached.ExportData, cached.Preview, job.AppendLog)
+		err := migration.Run(job.Context(), dst, cached.ExportData, cached.Preview, req.Exclude, job.AppendLog)
 		if err != nil {
-			job.AppendLog("ERROR: " + err.Error())
-			job.Fail(err.Error())
+			if job.IsCancelled() {
+				job.AppendLog("CANCELLED: migration stopped by user")
+			} else {
+				job.AppendLog("ERROR: " + err.Error())
+				job.Fail(err.Error())
+			}
 		} else {
 			job.Complete()
 		}

@@ -35,6 +35,9 @@ export function Migrate() {
   const [previewData, setPreviewData] = useState<MigrationPreviewData | null>(null);
   const [previewError, setPreviewError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [exclude, setExclude] = useState<Record<string, string[]>>({});
+  const [cancelling, setCancelling] = useState(false);
+  const [migrationDone, setMigrationDone] = useState(false);
 
   const loadConnections = useCallback(async () => {
     const conns = await api.listConnections() as Connection[];
@@ -50,6 +53,7 @@ export function Migrate() {
     setLoading(true);
     setPreviewData(null);
     setPreviewError('');
+    setExclude({});
 
     try {
       const result = await api.migrationPreview(sourceId, destId);
@@ -89,8 +93,10 @@ export function Migrate() {
   const handleRun = async () => {
     if (!previewJobId) return;
     setLoading(true);
+    setCancelling(false);
+    setMigrationDone(false);
     try {
-      const result = await api.migrationRun(sourceId, destId, previewJobId);
+      const result = await api.migrationRun(sourceId, destId, previewJobId, exclude);
       setRunJobId(result.job_id);
       setStep('run');
     } catch (err) {
@@ -100,12 +106,32 @@ export function Migrate() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!runJobId || cancelling) return;
+    setCancelling(true);
+    try {
+      await api.cancelJob(runJobId);
+    } catch {
+      // Job may have already finished
+    }
+  };
+
   const handleBack = () => {
     setStep('select');
     setPreviewJobId('');
     setRunJobId('');
     setPreviewData(null);
     setPreviewError('');
+    setExclude({});
+    setCancelling(false);
+    setMigrationDone(false);
+  };
+
+  const handleLogClose = (status: string) => {
+    setMigrationDone(true);
+    if (status === 'cancelled') {
+      setCancelling(false);
+    }
   };
 
   const sourceConn = connections.find(c => c.id === sourceId);
@@ -224,7 +250,11 @@ export function Migrate() {
           {previewData && (
             <div style={{ marginBottom: 16 }}>
               <Title headingLevel="h3" style={{ marginBottom: 8 }}>Preview Results</Title>
-              <MigrationPreview preview={previewData} />
+              <MigrationPreview
+                preview={previewData}
+                exclude={exclude}
+                onExcludeChange={setExclude}
+              />
             </div>
           )}
 
@@ -274,12 +304,24 @@ export function Migrate() {
                   <Title headingLevel="h3">Migration Log</Title>
                 </SplitItem>
                 <SplitItem>
+                  {!migrationDone && (
+                    <Button
+                      variant="danger"
+                      onClick={handleCancel}
+                      isDisabled={cancelling}
+                      isLoading={cancelling}
+                    >
+                      {cancelling ? 'Cancelling...' : 'Cancel Migration'}
+                    </Button>
+                  )}
+                </SplitItem>
+                <SplitItem>
                   <Button variant="plain" aria-label="Back" onClick={handleBack}>
                     <TimesIcon />
                   </Button>
                 </SplitItem>
               </Split>
-              <LogViewer jobId={runJobId} />
+              <LogViewer jobId={runJobId} onClose={handleLogClose} />
             </div>
           )}
 

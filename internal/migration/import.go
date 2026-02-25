@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -54,8 +55,25 @@ func actionFor(preview *models.MigrationPreview, typeName, name string) (string,
 	return "create", 0
 }
 
+// isExcluded checks whether a resource should be excluded from migration.
+func isExcluded(exclude map[string][]string, typeName, name string) bool {
+	names, ok := exclude[typeName]
+	if !ok {
+		return false
+	}
+	for _, n := range names {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
 // importAll creates resources on the destination in strict dependency order.
-func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData, preview *models.MigrationPreview, logger func(string)) error {
+func importAll(ctx context.Context, dst *platform.Client, prefix, dstType string, data *ExportedData, preview *models.MigrationPreview, exclude map[string][]string, logger func(string)) error {
+	if exclude == nil {
+		exclude = make(map[string][]string)
+	}
 	ids := newIDMap()
 
 	// Pre-populate credential type name→ID from destination (for both managed and custom types)
@@ -65,9 +83,17 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 1. Organizations
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("=== Importing organizations ===")
 	for _, org := range data.Organizations {
 		name := resourceName(org)
+		if isExcluded(exclude, "organizations", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "organizations", name)
 		if action != "create" {
 			ids.orgs[name] = destID
@@ -87,10 +113,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 2. Credential types (custom only)
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing credential types ===")
 	for _, ct := range data.CredentialTypes {
 		name := resourceName(ct)
+		if isExcluded(exclude, "credential_types", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "credential_types", name)
 		if action != "create" {
 			ids.credTypes[name] = destID
@@ -115,10 +149,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 3. Users
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing users ===")
 	for _, user := range data.Users {
 		name := stringField(user, "username")
+		if isExcluded(exclude, "users", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "users", name)
 		if action != "create" {
 			ids.users[name] = destID
@@ -142,10 +184,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 4. Teams
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing teams ===")
 	for _, team := range data.Teams {
 		name := resourceName(team)
+		if isExcluded(exclude, "teams", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "teams", name)
 		if action != "create" {
 			ids.teams[name] = destID
@@ -172,10 +222,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 5. Credentials
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing credentials ===")
 	for _, cred := range data.Credentials {
 		name := resourceName(cred)
+		if isExcluded(exclude, "credentials", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "credentials", name)
 		if action != "create" {
 			ids.creds[name] = destID
@@ -213,6 +271,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 6. Projects
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing projects ===")
 	var projectWaitList []struct {
@@ -221,6 +283,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 	for _, proj := range data.Projects {
 		name := resourceName(proj)
+		if isExcluded(exclude, "projects", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "projects", name)
 		if action != "create" {
 			ids.projects[name] = destID
@@ -268,7 +334,11 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	if dstType == "aap" && len(projectWaitList) > 0 {
 		logger("  Waiting for project syncs...")
 		for _, pw := range projectWaitList {
-			if err := waitForProject(dst, prefix, pw.id, 120*time.Second); err != nil {
+			if ctx.Err() != nil {
+				logger("Migration cancelled by user")
+				return ctx.Err()
+			}
+			if err := waitForProjectCtx(ctx, dst, prefix, pw.id, 120*time.Second); err != nil {
 				logger(fmt.Sprintf("  WARNING: project %s sync: %v", pw.name, err))
 			} else {
 				logger(fmt.Sprintf("  Project %s sync complete", pw.name))
@@ -277,6 +347,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 7. Inventories
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing inventories ===")
 	// Map source inv ID → name for host/group import
@@ -284,6 +358,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	for _, inv := range data.Inventories {
 		name := resourceName(inv)
 		srcInvNames[resourceID(inv)] = name
+		if isExcluded(exclude, "inventories", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "inventories", name)
 		if action != "create" {
 			ids.invs[name] = destID
@@ -307,6 +385,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 8. Hosts per inventory
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing hosts ===")
 	srcHostNames := make(map[int]string) // source host ID → name
@@ -316,10 +398,26 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 		if destInvID == 0 {
 			continue
 		}
+		// Skip hosts for excluded inventories
+		if isExcluded(exclude, "inventories", invName) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (inventory excluded)", invName))
+			for _, host := range hosts {
+				srcHostNames[resourceID(host)] = resourceName(host)
+			}
+			continue
+		}
 		for _, host := range hosts {
+			if ctx.Err() != nil {
+				logger("Migration cancelled by user")
+				return ctx.Err()
+			}
 			name := resourceName(host)
 			srcHostNames[resourceID(host)] = name
 			key := invName + "/" + name
+			if isExcluded(exclude, "hosts", name) {
+				logger(fmt.Sprintf("  EXCLUDED: %s/%s (user exclusion)", invName, name))
+				continue
+			}
 			// Check if host already exists
 			existing, _ := dst.FindByName(fmt.Sprintf("%sinventories/%d/hosts/", prefix, destInvID), name)
 			if existing != nil {
@@ -342,6 +440,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 9. Groups per inventory + host associations
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing groups ===")
 	for srcInvID, groups := range data.Groups {
@@ -350,7 +452,15 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 		if destInvID == 0 {
 			continue
 		}
+		// Skip groups for excluded inventories
+		if isExcluded(exclude, "inventories", invName) {
+			continue
+		}
 		for _, group := range groups {
+			if ctx.Err() != nil {
+				logger("Migration cancelled by user")
+				return ctx.Err()
+			}
 			name := resourceName(group)
 			key := invName + "/" + name
 			srcGroupID := resourceID(group)
@@ -388,10 +498,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 10. Job templates
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing job templates ===")
 	for _, jt := range data.JobTemplates {
 		name := resourceName(jt)
+		if isExcluded(exclude, "job_templates", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "job_templates", name)
 		if action != "create" {
 			ids.jts[name] = destID
@@ -468,10 +586,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 11. Schedules
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing schedules ===")
 	for _, sched := range data.Schedules {
 		name := resourceName(sched)
+		if isExcluded(exclude, "schedules", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		parentName := extractUnifiedJTName(sched)
 		destParentID := ids.jts[parentName]
 		if destParentID == 0 {
@@ -500,10 +626,18 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 12. Workflow job templates
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing workflow job templates ===")
 	for _, wf := range data.WorkflowJTs {
 		name := resourceName(wf)
+		if isExcluded(exclude, "workflow_job_templates", name) {
+			logger(fmt.Sprintf("  EXCLUDED: %s (user exclusion)", name))
+			continue
+		}
 		action, destID := actionFor(preview, "workflow_job_templates", name)
 		if action != "create" {
 			ids.wfjts[name] = destID
@@ -537,6 +671,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 13. Workflow nodes — two passes: create nodes, then wire edges
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing workflow nodes ===")
 	for _, wf := range data.WorkflowJTs {
@@ -595,6 +733,10 @@ func importAll(dst *platform.Client, prefix, dstType string, data *ExportedData,
 	}
 
 	// 14. User-org associations
+	if ctx.Err() != nil {
+		logger("Migration cancelled by user")
+		return ctx.Err()
+	}
 	logger("")
 	logger("=== Importing user-org associations ===")
 	for _, org := range data.Organizations {
@@ -694,6 +836,34 @@ func waitForProject(client *platform.Client, prefix string, id int, timeout time
 			return fmt.Errorf("project sync status: %s", status)
 		}
 		time.Sleep(3 * time.Second)
+	}
+	return fmt.Errorf("timeout waiting for project sync")
+}
+
+// waitForProjectCtx is like waitForProject but respects context cancellation.
+func waitForProjectCtx(ctx context.Context, client *platform.Client, prefix string, id int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		var proj map[string]interface{}
+		err := client.GetJSON(fmt.Sprintf("%sprojects/%d/", prefix, id), nil, &proj)
+		if err != nil {
+			return err
+		}
+		status, _ := proj["status"].(string)
+		switch status {
+		case "successful":
+			return nil
+		case "failed", "error", "canceled":
+			return fmt.Errorf("project sync status: %s", status)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(3 * time.Second):
+		}
 	}
 	return fmt.Errorf("timeout waiting for project sync")
 }

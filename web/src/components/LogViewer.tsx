@@ -3,9 +3,10 @@ import { createJobLogSocket } from '../api/client';
 
 interface Props {
   jobId: string;
+  onClose?: (status: string) => void;
 }
 
-export function LogViewer({ jobId }: Props) {
+export function LogViewer({ jobId, onClose }: Props) {
   const [lines, setLines] = useState<string[]>([]);
   const [status, setStatus] = useState<string>('connecting');
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -22,6 +23,7 @@ export function LogViewer({ jobId }: Props) {
       },
       (reason) => {
         setStatus(reason || 'closed');
+        onClose?.(reason || 'closed');
       }
     );
 

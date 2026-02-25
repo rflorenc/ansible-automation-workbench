@@ -8,7 +8,7 @@ export interface Job {
   id: string;
   type: string;
   connection_id: string;
-  status: 'running' | 'completed' | 'failed';
+  status: 'running' | 'completed' | 'failed' | 'cancelled';
   started_at: string;
   finished_at?: string;
   error?: string;
@@ -28,5 +28,12 @@ export interface MigrationPreviewData {
   destination_id: string;
   resources: Record<string, MigrationResource[]>;
   warnings: string[];
+  host_counts?: Record<string, number>;
+  group_counts?: Record<string, number>;
+}
+
+export interface DefaultExclusions {
+  migration: Record<string, string[]>;
+  cleanup: Record<string, Record<string, string[]>>;
 }
 

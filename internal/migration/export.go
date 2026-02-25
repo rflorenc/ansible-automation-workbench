@@ -17,6 +17,17 @@ var skipNames = map[string]map[string]bool{
 	"job_templates":  {"Demo Job Template": true},
 }
 
+// DefaultExclusions returns the default resource names skipped during migration export.
+func DefaultExclusions() map[string][]string {
+	result := make(map[string][]string)
+	for typeName, names := range skipNames {
+		for name := range names {
+			result[typeName] = append(result[typeName], name)
+		}
+	}
+	return result
+}
+
 // exportAll fetches all migratable resource types from the source into memory.
 func exportAll(client *platform.Client, prefix string, logger func(string)) (*ExportedData, error) {
 	data := &ExportedData{
