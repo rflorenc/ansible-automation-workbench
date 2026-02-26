@@ -42,7 +42,7 @@ func (s *Server) StreamJobLogs(w http.ResponseWriter, r *http.Request) {
 				offset++
 			}
 			// If job is done and we've sent everything, close
-			if (job.Status == "completed" || job.Status == "failed") && len(lines) == 0 {
+			if (job.Status == "completed" || job.Status == "failed" || job.Status == "cancelled") && len(lines) == 0 {
 				conn.WriteMessage(websocket.CloseMessage,
 					websocket.FormatCloseMessage(websocket.CloseNormalClosure, job.Status))
 				return

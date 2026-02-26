@@ -20,3 +20,20 @@ func (s *Server) GetJob(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, job)
 }
+
+// CancelJob cancels a running job.
+func (s *Server) CancelJob(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	job := s.Jobs.Get(id)
+	if job == nil {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	if job.Status != "running" {
+		writeError(w, http.StatusConflict, "job is not running")
+		return
+	}
+	job.Cancel()
+	job.AppendLog("CANCELLED: migration stopped by user")
+	writeJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
+}

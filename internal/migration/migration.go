@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/rflorenc/ansible-automation-workbench/internal/models"
@@ -98,12 +99,12 @@ func Preview(src, dst *models.Connection, logger func(string)) (*models.Migratio
 }
 
 // Run imports the previously exported data into the destination.
-func Run(dst *models.Connection, data *ExportedData, preview *models.MigrationPreview, logger func(string)) error {
+func Run(ctx context.Context, dst *models.Connection, data *ExportedData, preview *models.MigrationPreview, exclude map[string][]string, logger func(string)) error {
 	dstClient := platform.NewClient(dst)
 	dstPrefix := apiPrefix(dst)
 
 	logger("=== Starting migration to " + dst.Name + " ===")
 	logger("")
 
-	return importAll(dstClient, dstPrefix, dst.Type, data, preview, logger)
+	return importAll(ctx, dstClient, dstPrefix, dst.Type, data, preview, exclude, logger)
 }

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -12,12 +13,14 @@ type Job struct {
 	ID           string    `json:"id"`
 	Type         string    `json:"type"`          // "awx-populate", "aap-cleanup", "cac-apply", etc.
 	ConnectionID string    `json:"connection_id"`
-	Status       string    `json:"status"`        // "running", "completed", "failed"
+	Status       string    `json:"status"`        // "running", "completed", "failed", "cancelled"
 	StartedAt    time.Time `json:"started_at"`
 	FinishedAt   *time.Time `json:"finished_at,omitempty"`
 	Error        string    `json:"error,omitempty"`
 	Output       []string  `json:"output"`
 	mu           sync.Mutex
+	ctx          context.Context
+	cancelFn     context.CancelFunc
 }
 
 // AppendLog adds a log line to the job output.
@@ -58,6 +61,28 @@ func (j *Job) Fail(err string) {
 	j.FinishedAt = &now
 }
 
+// Cancel marks the job as cancelled and triggers the cancellation context.
+func (j *Job) Cancel() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.cancelFn != nil {
+		j.cancelFn()
+	}
+	j.Status = "cancelled"
+	now := time.Now()
+	j.FinishedAt = &now
+}
+
+// Context returns the job's cancellation context.
+func (j *Job) Context() context.Context {
+	return j.ctx
+}
+
+// IsCancelled returns true if the job has been cancelled.
+func (j *Job) IsCancelled() bool {
+	return j.ctx.Err() != nil
+}
+
 // JobStore is an in-memory thread-safe store for jobs.
 type JobStore struct {
 	mu   sync.RWMutex
@@ -73,6 +98,7 @@ func NewJobStore() *JobStore {
 func (s *JobStore) Create(jobType, connectionID string) *Job {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
 	j := &Job{
 		ID:           uuid.New().String(),
 		Type:         jobType,
@@ -80,6 +106,8 @@ func (s *JobStore) Create(jobType, connectionID string) *Job {
 		Status:       "running",
 		StartedAt:    time.Now(),
 		Output:       []string{},
+		ctx:          ctx,
+		cancelFn:     cancel,
 	}
 	s.jobs[j.ID] = j
 	return j

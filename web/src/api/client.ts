@@ -37,12 +37,21 @@ export const api = {
     request<{ job_id: string }>('POST', '/api/migrate/preview', { source_id: sourceId, destination_id: destinationId }),
   getMigrationPreview: (jobId: string) =>
     request<unknown>('GET', `/api/migrate/preview/${jobId}`),
-  migrationRun: (sourceId: string, destinationId: string, previewJobId: string) =>
-    request<{ job_id: string }>('POST', '/api/migrate/run', { source_id: sourceId, destination_id: destinationId, preview_job_id: previewJobId }),
+  migrationRun: (sourceId: string, destinationId: string, previewJobId: string, exclude?: Record<string, string[]>) =>
+    request<{ job_id: string }>('POST', '/api/migrate/run', {
+      source_id: sourceId,
+      destination_id: destinationId,
+      preview_job_id: previewJobId,
+      exclude: exclude || {},
+    }),
+
+  // Exclusions
+  getExclusions: () => request<unknown>('GET', '/api/exclusions'),
 
   // Jobs
   listJobs: () => request<unknown[]>('GET', '/api/jobs'),
   getJob: (id: string) => request<unknown>('GET', `/api/jobs/${id}`),
+  cancelJob: (jobId: string) => request<{ status: string }>('POST', `/api/jobs/${jobId}/cancel`),
 };
 
 export function createJobLogSocket(jobId: string, onMessage: (line: string) => void, onClose?: (status: string) => void): WebSocket {

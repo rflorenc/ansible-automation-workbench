@@ -15,4 +15,6 @@ type MigrationPreview struct {
 	DestinationID string                         `json:"destination_id"`
 	Resources     map[string][]MigrationResource `json:"resources"`
 	Warnings      []string                       `json:"warnings"`
+	HostCounts    map[string]int                 `json:"host_counts,omitempty"`  // inventory name → host count
+	GroupCounts   map[string]int                 `json:"group_counts,omitempty"` // inventory name → group count
 }

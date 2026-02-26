@@ -26,6 +26,27 @@ type Platform interface {
 	Export(outputDir string, logger func(string)) error
 }
 
+// CleanupExclusions returns the default skip lists used during cleanup for each platform type.
+func CleanupExclusions() map[string]map[string][]string {
+	result := map[string]map[string][]string{
+		"awx": extractSkips(awxResources),
+		"aap": extractSkips(aapResources),
+	}
+	return result
+}
+
+func extractSkips(resources []models.ResourceType) map[string][]string {
+	result := make(map[string][]string)
+	for _, r := range resources {
+		if len(r.Skip) > 0 {
+			for name := range r.Skip {
+				result[r.Name] = append(result[r.Name], name)
+			}
+		}
+	}
+	return result
+}
+
 // NewPlatform creates the appropriate Platform implementation for a connection.
 // If the connection has a detected APIPrefix that differs from the default,
 // resource paths are rewritten accordingly. No HTTP calls are made here.

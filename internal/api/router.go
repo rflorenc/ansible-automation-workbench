@@ -48,9 +48,13 @@ func NewRouter(s *Server, webFS fs.FS) http.Handler {
 		r.Get("/migrate/preview/{jobId}", s.GetMigrationPreview)
 		r.Post("/migrate/run", s.MigrationRunHandler)
 
+		// Exclusions
+		r.Get("/exclusions", s.GetExclusions)
+
 		// Jobs
 		r.Get("/jobs", s.ListJobs)
 		r.Get("/jobs/{id}", s.GetJob)
+		r.Post("/jobs/{id}/cancel", s.CancelJob)
 	})
 
 	// WebSocket (outside /api to avoid JSON content-type assumptions)
