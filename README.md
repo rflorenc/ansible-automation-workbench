@@ -39,7 +39,7 @@ Pre-built binaries for Linux, macOS and Windows are available at [Releases](http
 #### Linux (x86)
 
 ```bash
-RELEASE=0.3.0
+RELEASE=0.4.0
 ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/latest/download/ansible-automation-workbench_${RELEASE}_linux_amd64.tar.gz
 
 mkdir -p /tmp/workbench && cd /tmp/workbench
@@ -53,8 +53,8 @@ cp config.yaml.example config.yaml   # edit with your connections
 #### MacOS (arm64)
 
 ```bash
-RELEASE=0.3.0
-ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/download/v0.3.0/ansible-automation-workbench_${RELEASE}_darwin_arm64.tar.gz
+RELEASE=0.4.0
+ARTIFACT=https://github.com/rflorenc/ansible-automation-workbench/releases/download/v${RELEASE}/ansible-automation-workbench_${RELEASE}_darwin_arm64.tar.gz
 
 mkdir -p /tmp/workbench && cd /tmp/workbench
 curl -sLO $ARTIFACT

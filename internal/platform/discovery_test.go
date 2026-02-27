@@ -250,20 +250,25 @@ func TestPingWithVersion_Unparseable(t *testing.T) {
 	}
 }
 
-func TestPingPath(t *testing.T) {
+func TestPingPaths(t *testing.T) {
 	tests := []struct {
 		connType string
-		want     string
+		want     []string
 	}{
-		{"awx", "/api/v2/ping/"},
-		{"aap", "/api/controller/v2/ping/"},
-		{"", "/api/v2/ping/"},
+		{"awx", []string{"/api/v2/ping/"}},
+		{"aap", []string{"/api/controller/v2/ping/", "/api/v2/ping/"}},
+		{"", []string{"/api/v2/ping/"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.connType, func(t *testing.T) {
-			got := PingPath(tc.connType)
-			if got != tc.want {
-				t.Errorf("PingPath(%q) = %q, want %q", tc.connType, got, tc.want)
+			got := PingPaths(tc.connType)
+			if len(got) != len(tc.want) {
+				t.Fatalf("PingPaths(%q) returned %d paths, want %d", tc.connType, len(got), len(tc.want))
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("PingPaths(%q)[%d] = %q, want %q", tc.connType, i, got[i], tc.want[i])
+				}
 			}
 		})
 	}

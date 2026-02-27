@@ -3,6 +3,7 @@ package platform
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +26,11 @@ func NewClient(conn *models.Connection) *Client {
 	transport := &http.Transport{}
 	if conn.Insecure {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	} else if conn.CACert != "" {
+		caCertPool := x509.NewCertPool()
+		if caCertPool.AppendCertsFromPEM([]byte(conn.CACert)) {
+			transport.TLSClientConfig = &tls.Config{RootCAs: caCertPool}
+		}
 	}
 	return &Client{
 		baseURL:  conn.BaseURL(),

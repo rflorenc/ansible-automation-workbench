@@ -22,6 +22,9 @@ backend:
 build-run: frontend backend
 	./autoworkbench --config config.yaml
 
+build-run-dev: frontend backend
+	./autoworkbench --config .config.yaml
+
 dev:
 	@echo "Run in two terminals:"
 	@echo "  Terminal 1: cd web && npm run dev"

@@ -50,11 +50,22 @@ func NewAAPPlatform(client *Client) *AAPPlatform {
 }
 
 func (p *AAPPlatform) Ping() error {
-	return p.client.Ping("/api/controller/v2/ping/")
+	// Try gateway path first (AAP 2.5+), fall back to non-gateway (AAP 2.4 RPM)
+	for _, path := range PingPaths("aap") {
+		if err := p.client.Ping(path); err == nil {
+			return nil
+		}
+	}
+	return p.client.Ping("/api/v2/ping/")
 }
 
 func (p *AAPPlatform) CheckAuth() error {
-	return p.client.Ping("/api/controller/v2/organizations/?page_size=1")
+	// Try gateway path first, fall back to non-gateway
+	err := p.client.Ping("/api/controller/v2/organizations/?page_size=1")
+	if err != nil {
+		err = p.client.Ping("/api/v2/organizations/?page_size=1")
+	}
+	return err
 }
 
 func (p *AAPPlatform) GetResourceTypes() []models.ResourceType {

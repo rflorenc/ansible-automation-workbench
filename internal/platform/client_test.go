@@ -190,6 +190,23 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
+func TestNewClient_CACert(t *testing.T) {
+	conn := &models.Connection{
+		Scheme:   "https",
+		Host:     "example.com",
+		Port:     443,
+		Username: "user",
+		Password: "pass",
+		Insecure: false,
+		CACert:   "not-valid-pem",
+	}
+	// Should not panic with invalid PEM, falls back to system trust store
+	c := NewClient(conn)
+	if c.baseURL != "https://example.com:443" {
+		t.Errorf("baseURL = %q, want https://example.com:443", c.baseURL)
+	}
+}
+
 func TestNewClient(t *testing.T) {
 	conn := &models.Connection{
 		Scheme:   "https",

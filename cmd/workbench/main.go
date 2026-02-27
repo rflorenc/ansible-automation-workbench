@@ -50,6 +50,7 @@ func main() {
 			Username: cc.Username,
 			Password: cc.Password,
 			Insecure: cc.Insecure,
+			CACert:   cc.CACert,
 		}
 		if conn.Role == "" {
 			if conn.Type == "awx" {
@@ -102,7 +103,13 @@ func main() {
 				fmt.Printf("  AUTH OK: %s: authenticated successfully\n", conn.Name)
 
 				// Discovery: detect version and API prefix (only after auth succeeds)
-				pingResp, err := client.PingWithVersion(platform.PingPath(conn.Type))
+				var pingResp *platform.PingResponse
+				for _, pp := range platform.PingPaths(conn.Type) {
+					pingResp, err = client.PingWithVersion(pp)
+					if err == nil {
+						break
+					}
+				}
 				if err == nil && pingResp.Version != "" {
 					conn.Version = pingResp.Version
 					server.Connections.SetVersion(conn.ID, pingResp.Version, "")
