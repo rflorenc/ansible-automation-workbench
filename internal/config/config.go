@@ -19,6 +19,7 @@ type ConnectionConfig struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Insecure bool   `yaml:"insecure"`
+	CACert   string `yaml:"ca_cert"`
 }
 
 // Config holds all configuration (CLI flags + config file).

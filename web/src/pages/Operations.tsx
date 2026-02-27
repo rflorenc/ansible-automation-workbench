@@ -78,25 +78,55 @@ export function Operations() {
         <Alert variant="info" isInline title="No connections configured. Add connections first." />
       )}
 
-      <Flex style={{ marginBottom: 16 }}>
-        {connections.map(conn => (
-          <FlexItem key={conn.id}>
-            <Button
-              variant={selectedId === conn.id ? 'primary' : 'secondary'}
-              onClick={() => setSelectedId(conn.id)}
-            >
-              <Split hasGutter>
-                <SplitItem>{conn.name}</SplitItem>
-                <SplitItem>
-                  <Label color={conn.type === 'awx' ? 'blue' : 'purple'} isCompact>
-                    {conn.type.toUpperCase()}
-                  </Label>
-                </SplitItem>
-              </Split>
-            </Button>
-          </FlexItem>
-        ))}
-      </Flex>
+      {connections.filter(c => c.role === 'source').length > 0 && (
+        <>
+          <Title headingLevel="h2" size="lg" style={{ marginBottom: 8 }}>Sources</Title>
+          <Flex style={{ marginBottom: 16 }}>
+            {connections.filter(c => c.role === 'source').map(conn => (
+              <FlexItem key={conn.id}>
+                <Button
+                  variant={selectedId === conn.id ? 'primary' : 'secondary'}
+                  onClick={() => setSelectedId(conn.id)}
+                >
+                  <Split hasGutter>
+                    <SplitItem>{conn.name}</SplitItem>
+                    <SplitItem>
+                      <Label color={conn.type === 'awx' ? 'blue' : 'purple'} isCompact>
+                        {conn.type.toUpperCase()}
+                      </Label>
+                    </SplitItem>
+                  </Split>
+                </Button>
+              </FlexItem>
+            ))}
+          </Flex>
+        </>
+      )}
+
+      {connections.filter(c => c.role === 'destination').length > 0 && (
+        <>
+          <Title headingLevel="h2" size="lg" style={{ marginBottom: 8 }}>Destinations</Title>
+          <Flex style={{ marginBottom: 16 }}>
+            {connections.filter(c => c.role === 'destination').map(conn => (
+              <FlexItem key={conn.id}>
+                <Button
+                  variant={selectedId === conn.id ? 'primary' : 'secondary'}
+                  onClick={() => setSelectedId(conn.id)}
+                >
+                  <Split hasGutter>
+                    <SplitItem>{conn.name}</SplitItem>
+                    <SplitItem>
+                      <Label color={conn.type === 'awx' ? 'blue' : 'purple'} isCompact>
+                        {conn.type.toUpperCase()}
+                      </Label>
+                    </SplitItem>
+                  </Split>
+                </Button>
+              </FlexItem>
+            ))}
+          </Flex>
+        </>
+      )}
 
       {error && (
         <Alert variant="danger" isInline title={error} style={{ marginBottom: 16 }} />

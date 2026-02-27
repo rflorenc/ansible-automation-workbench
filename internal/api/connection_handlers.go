@@ -113,7 +113,13 @@ func (s *Server) TestConnection(w http.ResponseWriter, r *http.Request) {
 			authStatus = "ok"
 
 			// Step 3: discovery (only after auth succeeds)
-			pingResp, err := client.PingWithVersion(platform.PingPath(conn.Type))
+			var pingResp *platform.PingResponse
+			for _, pp := range platform.PingPaths(conn.Type) {
+				pingResp, err = client.PingWithVersion(pp)
+				if err == nil {
+					break
+				}
+			}
 			if err == nil && pingResp.Version != "" {
 				version = pingResp.Version
 				conn.Version = version

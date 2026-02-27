@@ -20,6 +20,7 @@ type Connection struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Insecure    bool       `json:"insecure"`                // skip TLS verification
+	CACert      string     `json:"ca_cert,omitempty"`       // PEM-encoded CA certificate for TLS verification
 	Version     string     `json:"version,omitempty"`       // detected platform version, e.g. "23.4.0" or "4.7.8"
 	APIPrefix   string     `json:"api_prefix,omitempty"`    // detected API prefix, e.g. "/api/v2/" or "/api/controller/v2/"
 	PingStatus  string     `json:"ping_status"`             // "unknown", "ok", "error"

@@ -122,12 +122,14 @@ func parseVersionParts(v string) []int {
 	return result
 }
 
-// PingPath returns the ping endpoint path for a connection type.
-func PingPath(connType string) string {
+// PingPaths returns the ping endpoint paths to try for a connection type.
+// AAP tries the gateway path first, then falls back to the non-gateway path
+// (AAP 2.4 RPM has no gateway and uses /api/v2/).
+func PingPaths(connType string) []string {
 	if connType == "aap" {
-		return "/api/controller/v2/ping/"
+		return []string{"/api/controller/v2/ping/", "/api/v2/ping/"}
 	}
-	return "/api/v2/ping/"
+	return []string{"/api/v2/ping/"}
 }
 
 // rewritePaths returns a copy of the resource registry with API paths rewritten

@@ -126,7 +126,7 @@ export function Dashboard() {
             </DescriptionListGroup>
             <DescriptionListGroup>
               <DescriptionListTerm>TLS Verify</DescriptionListTerm>
-              <DescriptionListDescription>{conn.insecure ? 'Off' : 'On'}</DescriptionListDescription>
+              <DescriptionListDescription>{conn.insecure ? 'Off' : conn.ca_cert ? 'Custom CA' : 'On'}</DescriptionListDescription>
             </DescriptionListGroup>
           </DescriptionList>
           {conn.ping_status === 'error' && conn.ping_error && (
@@ -176,6 +176,7 @@ export function Dashboard() {
       )}
 
       <ConnectionForm
+        key={editConn?.id || 'new'}
         isOpen={showForm}
         initial={editConn || undefined}
         onSave={handleSave}

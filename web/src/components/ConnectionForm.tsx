@@ -8,6 +8,7 @@ import {
   HelperText,
   HelperTextItem,
   TextInput,
+  TextArea,
   FormSelect,
   FormSelectOption,
   Checkbox,
@@ -32,9 +33,10 @@ export function ConnectionForm({ isOpen, initial, onSave, onClose }: Props) {
   const [username, setUsername] = useState(initial?.username || 'admin');
   const [password, setPassword] = useState(initial?.password || '');
   const [insecure, setInsecure] = useState(initial?.insecure ?? true);
+  const [caCert, setCaCert] = useState(initial?.ca_cert || '');
 
   const handleSubmit = () => {
-    onSave({ name, type, role, scheme, host, port, username, password, insecure });
+    onSave({ name, type, role, scheme, host, port, username, password, insecure, ca_cert: caCert || undefined });
   };
 
   return (
@@ -115,6 +117,25 @@ export function ConnectionForm({ isOpen, initial, onSave, onClose }: Props) {
             onChange={(_e, v) => setInsecure(v)}
           />
         </FormGroup>
+        {scheme === 'https' && !insecure && (
+          <FormGroup label="CA Certificate" fieldId="ca_cert">
+            <TextArea
+              id="ca_cert"
+              value={caCert}
+              onChange={(_e, v) => setCaCert(v)}
+              placeholder="Paste PEM-encoded CA certificate (optional — uses system trust store if empty)"
+              rows={4}
+              resizeOrientation="vertical"
+            />
+            <FormHelperText>
+              <HelperText>
+                <HelperTextItem>
+                  Leave empty to use the system trust store
+                </HelperTextItem>
+              </HelperText>
+            </FormHelperText>
+          </FormGroup>
+        )}
       </Form>
     </Modal>
   );
