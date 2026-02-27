@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/rflorenc/ansible-automation-workbench/internal/models"
 )
@@ -581,6 +582,25 @@ func (p *AWXPlatform) Populate(logger func(string)) error {
 		log(fmt.Sprintf("  Project: %s (id=%d)", pr.name, id))
 	}
 
+	// Wait for project sync; on failure, convert to manual project so JTs can still be created
+	log("  Waiting for project sync...")
+	for name, id := range projectIDs {
+		if err := p.waitForProject(id, 120*time.Second); err != nil {
+			log(fmt.Sprintf("  WARNING: project %s sync failed: %v", name, err))
+			log(fmt.Sprintf("  Converting %s to manual project (no SCM) so JTs can be created...", name))
+			_, _, patchErr := c.Patch(fmt.Sprintf("/api/v2/projects/%d/", id), map[string]interface{}{
+				"scm_type": "", "scm_url": "", "scm_branch": "",
+			})
+			if patchErr != nil {
+				log(fmt.Sprintf("  WARNING: could not convert project %s to manual: %v", name, patchErr))
+			} else {
+				log(fmt.Sprintf("  Project %s converted to manual", name))
+			}
+		} else {
+			log(fmt.Sprintf("  Project %s synced successfully", name))
+		}
+	}
+
 	// 7. Inventories, Hosts, Groups
 	log("\n=== Creating Inventories ===")
 	type hostDef struct {
@@ -694,7 +714,11 @@ func (p *AWXPlatform) Populate(logger func(string)) error {
 		{"MigrateMe - Deploy App (Dev)", "MigrateMe Sample Playbooks", "MigrateMe Dev Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
 		{"MigrateMe - Deploy App (Prod)", "MigrateMe Sample Playbooks", "MigrateMe Prod Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
 		{"MigrateMe - DB Backup", "MigrateMe Sample Playbooks", "MigrateMe Dev Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential", "MigrateMe Vault Credential"}},
-		{"Ops - Network Audit", "Ops Automation Playbooks", "Ops Network Inventory", "hello_world.yml", []string{"Ops Machine Credential"}},
+		{"MigrateMe - Smoke Test (Dev)", "MigrateMe Sample Playbooks", "MigrateMe Dev Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
+		{"MigrateMe - Smoke Test (Prod)", "MigrateMe Sample Playbooks", "MigrateMe Prod Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
+		{"MigrateMe - Patch Servers", "MigrateMe Sample Playbooks", "MigrateMe Prod Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential", "MigrateMe Vault Credential"}},
+		{"Ops - Network Audit", "Ops Automation Playbooks", "Ops Network Inventory", "language_features/environment.yml", []string{"Ops Machine Credential"}},
+		{"Ops - Switch Config Backup", "Ops Automation Playbooks", "Ops Network Inventory", "language_features/environment.yml", []string{"Ops Machine Credential"}},
 	}
 	jtIDs := make(map[string]int)
 	for _, jt := range jts {
@@ -961,4 +985,24 @@ func extractRoleID(obj map[string]interface{}, field string) int {
 		return int(v)
 	}
 	return 0
+}
+
+func (p *AWXPlatform) waitForProject(id int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		var proj map[string]interface{}
+		err := p.client.GetJSON(fmt.Sprintf("/api/v2/projects/%d/", id), nil, &proj)
+		if err != nil {
+			return err
+		}
+		status, _ := proj["status"].(string)
+		switch status {
+		case "successful":
+			return nil
+		case "failed", "error", "canceled":
+			return fmt.Errorf("project sync status: %s", status)
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return fmt.Errorf("timeout waiting for project sync")
 }

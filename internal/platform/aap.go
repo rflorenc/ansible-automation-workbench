@@ -37,32 +37,45 @@ var aapResources = []models.ResourceType{
 	{Name: "schedules", Label: "Schedules", APIPath: "/api/controller/v2/schedules/"},
 }
 
+// defaultAAPPrefix is the API prefix for AAP 2.5+ (with gateway).
+const defaultAAPPrefix = "/api/controller/v2/"
+
 // AAPPlatform implements Platform for AAP 2.x (controller + gateway).
 type AAPPlatform struct {
 	client    *Client
 	resources []models.ResourceType // nil = use static aapResources
 	version   string                // detected platform version
+	apiPrefix string                // e.g. "/api/controller/v2/" or "/api/v2/"
 }
 
 // NewAAPPlatform creates a new AAP Platform.
 func NewAAPPlatform(client *Client) *AAPPlatform {
-	return &AAPPlatform{client: client}
+	return &AAPPlatform{client: client, apiPrefix: defaultAAPPrefix}
+}
+
+// path builds an API path from the platform's prefix and a resource suffix.
+// Example: p.path("organizations/") → "/api/controller/v2/organizations/"
+func (p *AAPPlatform) path(suffix string) string {
+	return p.apiPrefix + suffix
 }
 
 func (p *AAPPlatform) Ping() error {
-	// Try gateway path first (AAP 2.5+), fall back to non-gateway (AAP 2.4 RPM)
+	// Try configured prefix first, fall back to alternatives
+	if err := p.client.Ping(p.path("ping/")); err == nil {
+		return nil
+	}
 	for _, path := range PingPaths("aap") {
 		if err := p.client.Ping(path); err == nil {
 			return nil
 		}
 	}
-	return p.client.Ping("/api/v2/ping/")
+	return fmt.Errorf("ping failed on all known API paths")
 }
 
 func (p *AAPPlatform) CheckAuth() error {
-	// Try gateway path first, fall back to non-gateway
-	err := p.client.Ping("/api/controller/v2/organizations/?page_size=1")
-	if err != nil {
+	err := p.client.Ping(p.path("organizations/?page_size=1"))
+	if err != nil && p.apiPrefix != "/api/v2/" {
+		// Fall back to non-gateway path (AAP 2.4 RPM)
 		err = p.client.Ping("/api/v2/organizations/?page_size=1")
 	}
 	return err
@@ -145,7 +158,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 
 	// 1. Organizations
 	log("\n=== Creating Organizations ===")
-	orgCorpID, err := ensure("/api/controller/v2/organizations/", "MigrateMe-Corp", map[string]interface{}{
+	orgCorpID, err := ensure(p.path("organizations/"), "MigrateMe-Corp", map[string]interface{}{
 		"name": "MigrateMe-Corp", "description": "Primary corporation for migration testing",
 	})
 	if err != nil {
@@ -153,7 +166,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 	}
 	log(fmt.Sprintf("  Organization: MigrateMe-Corp (id=%d)", orgCorpID))
 
-	orgOpsID, err := ensure("/api/controller/v2/organizations/", "MigrateMe-Ops", map[string]interface{}{
+	orgOpsID, err := ensure(p.path("organizations/"), "MigrateMe-Ops", map[string]interface{}{
 		"name": "MigrateMe-Ops", "description": "Operations team organization",
 	})
 	if err != nil {
@@ -173,7 +186,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 	}
 	teamIDs := make(map[string]int)
 	for _, t := range teams {
-		id, err := ensure("/api/controller/v2/teams/", t.name, map[string]interface{}{
+		id, err := ensure(p.path("teams/"), t.name, map[string]interface{}{
 			"name": t.name, "organization": t.orgID,
 		})
 		if err != nil {
@@ -208,7 +221,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 	userIDs := make(map[string]int)
 	orgNameToID := map[string]int{"MigrateMe-Corp": orgCorpID, "MigrateMe-Ops": orgOpsID}
 	for _, u := range users {
-		id, err := ensureUser("/api/controller/v2/users/", u.username, map[string]interface{}{
+		id, err := ensureUser(p.path("users/"), u.username, map[string]interface{}{
 			"username": u.username, "first_name": u.firstName, "last_name": u.lastName,
 			"email": u.email, "password": "changeme123!",
 		})
@@ -219,18 +232,18 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 		log(fmt.Sprintf("  User: %s (id=%d)", u.username, id))
 
 		// Associate with org
-		associate(fmt.Sprintf("/api/controller/v2/organizations/%d/users/", orgNameToID[u.orgName]), id)
+		associate(fmt.Sprintf(p.path("organizations/%d/users/"), orgNameToID[u.orgName]), id)
 		// Associate with teams
 		for _, tn := range u.teamNames {
 			if tid, ok := teamIDs[tn]; ok {
-				associate(fmt.Sprintf("/api/controller/v2/teams/%d/users/", tid), id)
+				associate(fmt.Sprintf(p.path("teams/%d/users/"), tid), id)
 			}
 		}
 	}
 
 	// 4. Credential Types
 	log("\n=== Creating Credential Types ===")
-	ctID, err := ensure("/api/controller/v2/credential_types/", "API Token", map[string]interface{}{
+	ctID, err := ensure(p.path("credential_types/"), "API Token", map[string]interface{}{
 		"name": "API Token",
 		"kind": "cloud",
 		"inputs": map[string]interface{}{
@@ -279,7 +292,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 	}
 	credIDs := make(map[string]int)
 	for _, cr := range creds {
-		id, err := ensure("/api/controller/v2/credentials/", cr.name, map[string]interface{}{
+		id, err := ensure(p.path("credentials/"), cr.name, map[string]interface{}{
 			"name": cr.name, "credential_type": cr.credType,
 			"organization": cr.orgID, "inputs": cr.inputs,
 		})
@@ -304,7 +317,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 	}
 	projectIDs := make(map[string]int)
 	for _, pr := range projects {
-		id, err := ensure("/api/controller/v2/projects/", pr.name, map[string]interface{}{
+		id, err := ensure(p.path("projects/"), pr.name, map[string]interface{}{
 			"name": pr.name, "organization": pr.orgID,
 			"scm_type": "git", "scm_url": pr.scmURL, "scm_branch": pr.branch,
 		})
@@ -315,11 +328,20 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 		log(fmt.Sprintf("  Project: %s (id=%d)", pr.name, id))
 	}
 
-	// Wait for project sync
+	// Wait for project sync; on failure, convert to manual project so JTs can still be created
 	log("  Waiting for project sync...")
 	for name, id := range projectIDs {
 		if err := p.waitForProject(id, 120*time.Second); err != nil {
-			log(fmt.Sprintf("  WARNING: project %s sync: %v", name, err))
+			log(fmt.Sprintf("  WARNING: project %s sync failed: %v", name, err))
+			log(fmt.Sprintf("  Converting %s to manual project (no SCM) so JTs can be created...", name))
+			_, _, patchErr := c.Patch(fmt.Sprintf(p.path("projects/%d/"), id), map[string]interface{}{
+				"scm_type": "", "scm_url": "", "scm_branch": "",
+			})
+			if patchErr != nil {
+				log(fmt.Sprintf("  WARNING: could not convert project %s to manual: %v", name, patchErr))
+			} else {
+				log(fmt.Sprintf("  Project %s converted to manual", name))
+			}
 		} else {
 			log(fmt.Sprintf("  Project %s synced successfully", name))
 		}
@@ -379,7 +401,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 
 	invIDs := make(map[string]int)
 	for _, inv := range inventories {
-		invID, err := ensure("/api/controller/v2/inventories/", inv.name, map[string]interface{}{
+		invID, err := ensure(p.path("inventories/"), inv.name, map[string]interface{}{
 			"name": inv.name, "organization": inv.orgID,
 		})
 		if err != nil {
@@ -392,7 +414,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 		hostIDs := make(map[string]int)
 		for _, h := range inv.hosts {
 			hID, err := ensure(
-				fmt.Sprintf("/api/controller/v2/inventories/%d/hosts/", invID),
+				fmt.Sprintf(p.path("inventories/%d/hosts/"), invID),
 				h.name,
 				map[string]interface{}{"name": h.name, "variables": h.vars},
 			)
@@ -407,7 +429,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 		// Create groups and associate hosts
 		for _, g := range inv.groups {
 			gID, err := ensure(
-				fmt.Sprintf("/api/controller/v2/inventories/%d/groups/", invID),
+				fmt.Sprintf(p.path("inventories/%d/groups/"), invID),
 				g.name,
 				map[string]interface{}{"name": g.name},
 			)
@@ -418,7 +440,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			log(fmt.Sprintf("    Group: %s (id=%d)", g.name, gID))
 			for _, hName := range g.hosts {
 				if hID, ok := hostIDs[hName]; ok {
-					associate(fmt.Sprintf("/api/controller/v2/groups/%d/hosts/", gID), hID)
+					associate(fmt.Sprintf(p.path("groups/%d/hosts/"), gID), hID)
 				}
 			}
 		}
@@ -438,11 +460,15 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 		{"MigrateMe - Deploy App (Dev)", "MigrateMe Sample Playbooks", "MigrateMe Dev Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
 		{"MigrateMe - Deploy App (Prod)", "MigrateMe Sample Playbooks", "MigrateMe Prod Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
 		{"MigrateMe - DB Backup", "MigrateMe Sample Playbooks", "MigrateMe Dev Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential", "MigrateMe Vault Credential"}},
-		{"Ops - Network Audit", "Ops Automation Playbooks", "Ops Network Inventory", "hello_world.yml", []string{"Ops Machine Credential"}},
+		{"MigrateMe - Smoke Test (Dev)", "MigrateMe Sample Playbooks", "MigrateMe Dev Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
+		{"MigrateMe - Smoke Test (Prod)", "MigrateMe Sample Playbooks", "MigrateMe Prod Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential"}},
+		{"MigrateMe - Patch Servers", "MigrateMe Sample Playbooks", "MigrateMe Prod Inventory", "hello_world.yml", []string{"MigrateMe Machine Credential", "MigrateMe Vault Credential"}},
+		{"Ops - Network Audit", "Ops Automation Playbooks", "Ops Network Inventory", "language_features/environment.yml", []string{"Ops Machine Credential"}},
+		{"Ops - Switch Config Backup", "Ops Automation Playbooks", "Ops Network Inventory", "language_features/environment.yml", []string{"Ops Machine Credential"}},
 	}
 	jtIDs := make(map[string]int)
 	for _, jt := range jts {
-		id, err := ensure("/api/controller/v2/job_templates/", jt.name, map[string]interface{}{
+		id, err := ensure(p.path("job_templates/"), jt.name, map[string]interface{}{
 			"name": jt.name, "project": projectIDs[jt.project],
 			"inventory": invIDs[jt.inventory], "playbook": jt.playbook,
 		})
@@ -456,7 +482,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 		// Associate credentials
 		for _, credName := range jt.creds {
 			if cid, ok := credIDs[credName]; ok {
-				associate(fmt.Sprintf("/api/controller/v2/job_templates/%d/credentials/", id), cid)
+				associate(fmt.Sprintf(p.path("job_templates/%d/credentials/"), id), cid)
 			}
 		}
 	}
@@ -480,7 +506,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			log(fmt.Sprintf("  WARNING: schedule %s: JT %s not found", s.name, s.jtKey))
 			continue
 		}
-		existing, err := c.FindByName("/api/controller/v2/schedules/", s.name)
+		existing, err := c.FindByName(p.path("schedules/"), s.name)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: schedule %s: %v", s.name, err))
 			continue
@@ -489,7 +515,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			log(fmt.Sprintf("  Schedule: %s (existing id=%d)", s.name, resourceID(existing)))
 			continue
 		}
-		body, _, err := c.Post(fmt.Sprintf("/api/controller/v2/job_templates/%d/schedules/", jtID),
+		body, _, err := c.Post(fmt.Sprintf(p.path("job_templates/%d/schedules/"), jtID),
 			map[string]interface{}{"name": s.name, "rrule": s.rrule})
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: schedule %s: %v", s.name, err))
@@ -535,12 +561,12 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			log(fmt.Sprintf("  WARNING: survey for %s: JT not found", sv.jtKey))
 			continue
 		}
-		_, _, err := c.Post(fmt.Sprintf("/api/controller/v2/job_templates/%d/survey_spec/", jtID), sv.spec)
+		_, _, err := c.Post(fmt.Sprintf(p.path("job_templates/%d/survey_spec/"), jtID), sv.spec)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: survey for %s: %v", sv.jtKey, err))
 			continue
 		}
-		_, _, err = c.Patch(fmt.Sprintf("/api/controller/v2/job_templates/%d/", jtID),
+		_, _, err = c.Patch(fmt.Sprintf(p.path("job_templates/%d/"), jtID),
 			map[string]interface{}{"survey_enabled": true})
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: enabling survey for %s: %v", sv.jtKey, err))
@@ -551,7 +577,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 
 	// 9. Workflow Job Template
 	log("\n=== Creating Workflow Job Templates ===")
-	wfjtID, err := ensure("/api/controller/v2/workflow_job_templates/", "MigrateMe - Full Deploy Pipeline", map[string]interface{}{
+	wfjtID, err := ensure(p.path("workflow_job_templates/"), "MigrateMe - Full Deploy Pipeline", map[string]interface{}{
 		"name": "MigrateMe - Full Deploy Pipeline", "organization": orgCorpID,
 		"description": "Full deployment pipeline: backup → dev deploy → prod deploy",
 	})
@@ -572,7 +598,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 	}
 
 	// Fetch existing nodes to avoid duplicates
-	existingNodes, _ := c.GetAll(fmt.Sprintf("/api/controller/v2/workflow_job_templates/%d/workflow_nodes/", wfjtID))
+	existingNodes, _ := c.GetAll(fmt.Sprintf(p.path("workflow_job_templates/%d/workflow_nodes/"), wfjtID))
 	existingByJT := make(map[int]int)
 	for _, en := range existingNodes {
 		if ujtID := intField(en, "unified_job_template"); ujtID > 0 {
@@ -590,7 +616,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			log(fmt.Sprintf("    Node: %s (existing node_id=%d, jt_id=%d)", n.name, existingID, n.jtID))
 			continue
 		}
-		body, _, err := c.Post(fmt.Sprintf("/api/controller/v2/workflow_job_templates/%d/workflow_nodes/", wfjtID),
+		body, _, err := c.Post(fmt.Sprintf(p.path("workflow_job_templates/%d/workflow_nodes/"), wfjtID),
 			map[string]interface{}{"unified_job_template": n.jtID})
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: workflow node %s: %v", n.name, err))
@@ -604,11 +630,11 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 
 	// Wire edges: backup --success--> deploy_dev --success--> deploy_prod
 	if nodeIDs[0] > 0 && nodeIDs[1] > 0 {
-		c.Post(fmt.Sprintf("/api/controller/v2/workflow_job_template_nodes/%d/success_nodes/", nodeIDs[0]),
+		c.Post(fmt.Sprintf(p.path("workflow_job_template_nodes/%d/success_nodes/"), nodeIDs[0]),
 			map[string]interface{}{"id": nodeIDs[1]})
 	}
 	if nodeIDs[1] > 0 && nodeIDs[2] > 0 {
-		c.Post(fmt.Sprintf("/api/controller/v2/workflow_job_template_nodes/%d/success_nodes/", nodeIDs[1]),
+		c.Post(fmt.Sprintf(p.path("workflow_job_template_nodes/%d/success_nodes/"), nodeIDs[1]),
 			map[string]interface{}{"id": nodeIDs[2]})
 	}
 
@@ -648,7 +674,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			continue
 		}
 		var obj map[string]interface{}
-		objPath := fmt.Sprintf("/api/controller/v2/%s/%d/", ra.objectType, ra.objectID)
+		objPath := fmt.Sprintf(p.path("%s/%d/"), ra.objectType, ra.objectID)
 		if err := c.GetJSON(objPath, nil, &obj); err != nil {
 			log(fmt.Sprintf("  WARNING: %s role %s on %s: %v", ra.teamName, ra.roleField, ra.objectName, err))
 			continue
@@ -658,7 +684,7 @@ func (p *AAPPlatform) Populate(logger func(string)) error {
 			log(fmt.Sprintf("  WARNING: role %s not found on %s", ra.roleField, ra.objectName))
 			continue
 		}
-		c.Post(fmt.Sprintf("/api/controller/v2/roles/%d/teams/", roleID), map[string]interface{}{"id": teamIDs[ra.teamName]})
+		c.Post(fmt.Sprintf(p.path("roles/%d/teams/"), roleID), map[string]interface{}{"id": teamIDs[ra.teamName]})
 		log(fmt.Sprintf("  %s → %s.%s", ra.teamName, ra.objectName, ra.roleField))
 	}
 
@@ -671,17 +697,18 @@ func (p *AAPPlatform) Cleanup(logger func(string)) error {
 	log := logger
 
 	// Deletion order (reverse dependency)
+	registry := p.GetResourceTypes()
 	deleteOrder := []models.ResourceType{
-		findResource(aapResources, "schedules"),
-		findResource(aapResources, "workflow_job_templates"),
-		findResource(aapResources, "job_templates"),
-		findResource(aapResources, "inventories"),
-		findResource(aapResources, "projects"),
-		findResource(aapResources, "credentials"),
-		findResource(aapResources, "credential_types"),
-		findResource(aapResources, "users"),
-		findResource(aapResources, "teams"),
-		findResource(aapResources, "organizations"),
+		findResource(registry, "schedules"),
+		findResource(registry, "workflow_job_templates"),
+		findResource(registry, "job_templates"),
+		findResource(registry, "inventories"),
+		findResource(registry, "projects"),
+		findResource(registry, "credentials"),
+		findResource(registry, "credential_types"),
+		findResource(registry, "users"),
+		findResource(registry, "teams"),
+		findResource(registry, "organizations"),
 	}
 
 	deleted, skipped, failed := 0, 0, 0
@@ -784,7 +811,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			return
 		}
 		downloaded["organizations"][id] = true
-		obj, err := fetchOne("/api/controller/v2/organizations/", id)
+		obj, err := fetchOne(p.path("organizations/"), id)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: org %d: %v", id, err))
 			return
@@ -799,7 +826,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			return
 		}
 		downloaded["credentials"][id] = true
-		obj, err := fetchOne("/api/controller/v2/credentials/", id)
+		obj, err := fetchOne(p.path("credentials/"), id)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: credential %d: %v", id, err))
 			return
@@ -818,7 +845,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			return
 		}
 		downloaded["execution_environments"][id] = true
-		obj, err := fetchOne("/api/controller/v2/execution_environments/", id)
+		obj, err := fetchOne(p.path("execution_environments/"), id)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: EE %d: %v", id, err))
 			return
@@ -836,7 +863,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			return
 		}
 		downloaded["projects"][id] = true
-		obj, err := fetchOne("/api/controller/v2/projects/", id)
+		obj, err := fetchOne(p.path("projects/"), id)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: project %d: %v", id, err))
 			return
@@ -862,7 +889,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			return
 		}
 		downloaded["inventories"][id] = true
-		obj, err := fetchOne("/api/controller/v2/inventories/", id)
+		obj, err := fetchOne(p.path("inventories/"), id)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: inventory %d: %v", id, err))
 			return
@@ -874,7 +901,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			downloadOrg(orgID)
 		}
 		// Inventory sources
-		sources, err := p.client.GetAll(fmt.Sprintf("/api/controller/v2/inventories/%d/inventory_sources/", id))
+		sources, err := p.client.GetAll(fmt.Sprintf(p.path("inventories/%d/inventory_sources/"), id))
 		if err == nil && len(sources) > 0 {
 			writeJSON("inventories", fmt.Sprintf("%d_%s_sources.json", id, safeName(name)), sources)
 		}
@@ -885,7 +912,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 			return
 		}
 		downloaded["job_templates"][id] = true
-		obj, err := fetchOne("/api/controller/v2/job_templates/", id)
+		obj, err := fetchOne(p.path("job_templates/"), id)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: JT %d: %v", id, err))
 			return
@@ -896,7 +923,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 
 		// Survey (optional)
 		var survey map[string]interface{}
-		if err := p.client.GetJSON(fmt.Sprintf("/api/controller/v2/job_templates/%d/survey_spec/", id), nil, &survey); err == nil {
+		if err := p.client.GetJSON(fmt.Sprintf(p.path("job_templates/%d/survey_spec/"), id), nil, &survey); err == nil {
 			writeJSON("job_templates", fmt.Sprintf("%d_%s_survey.json", id, safeName(name)), survey)
 		}
 
@@ -926,7 +953,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 
 	// Start: Fetch all workflow job templates
 	log("=== Downloading Workflow Job Templates ===")
-	workflows, err := p.client.GetAll("/api/controller/v2/workflow_job_templates/")
+	workflows, err := p.client.GetAll(p.path("workflow_job_templates/"))
 	if err != nil {
 		return fmt.Errorf("fetching workflows: %w", err)
 	}
@@ -943,7 +970,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 		log(fmt.Sprintf("\nWorkflow: %s (id=%d)", name, wfID))
 
 		// Details
-		details, err := fetchOne("/api/controller/v2/workflow_job_templates/", wfID)
+		details, err := fetchOne(p.path("workflow_job_templates/"), wfID)
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: workflow details %d: %v", wfID, err))
 			continue
@@ -951,7 +978,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 		writeJSON("workflow_job_templates", fmt.Sprintf("%d_%s_details.json", wfID, safeName(name)), details)
 
 		// Nodes
-		nodes, err := p.client.GetAll(fmt.Sprintf("/api/controller/v2/workflow_job_templates/%d/workflow_nodes/", wfID))
+		nodes, err := p.client.GetAll(fmt.Sprintf(p.path("workflow_job_templates/%d/workflow_nodes/"), wfID))
 		if err != nil {
 			log(fmt.Sprintf("  WARNING: workflow nodes %d: %v", wfID, err))
 			continue
@@ -960,7 +987,7 @@ func (p *AAPPlatform) Export(outputDir string, logger func(string)) error {
 
 		// Survey (optional)
 		var survey map[string]interface{}
-		if err := p.client.GetJSON(fmt.Sprintf("/api/controller/v2/workflow_job_templates/%d/survey_spec/", wfID), nil, &survey); err == nil {
+		if err := p.client.GetJSON(fmt.Sprintf(p.path("workflow_job_templates/%d/survey_spec/"), wfID), nil, &survey); err == nil {
 			writeJSON("workflow_job_templates", fmt.Sprintf("%d_%s_survey.json", wfID, safeName(name)), survey)
 		}
 
@@ -999,7 +1026,7 @@ func (p *AAPPlatform) waitForProject(id int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		var proj map[string]interface{}
-		err := p.client.GetJSON(fmt.Sprintf("/api/controller/v2/projects/%d/", id), nil, &proj)
+		err := p.client.GetJSON(fmt.Sprintf(p.path("projects/%d/"), id), nil, &proj)
 		if err != nil {
 			return err
 		}

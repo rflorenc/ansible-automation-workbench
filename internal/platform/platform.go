@@ -63,8 +63,11 @@ func NewPlatform(conn *models.Connection) Platform {
 	case "aap":
 		p := NewAAPPlatform(client)
 		p.version = conn.Version
-		if conn.APIPrefix != "" && conn.APIPrefix != "/api/controller/v2/" {
-			p.resources = rewritePaths(aapResources, "/api/controller/v2/", conn.APIPrefix)
+		if conn.APIPrefix != "" {
+			p.apiPrefix = conn.APIPrefix
+			if conn.APIPrefix != defaultAAPPrefix {
+				p.resources = rewritePaths(aapResources, defaultAAPPrefix, conn.APIPrefix)
+			}
 		}
 		return p
 	default:
