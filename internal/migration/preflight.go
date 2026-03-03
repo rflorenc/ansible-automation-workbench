@@ -101,6 +101,41 @@ func preflightCheck(data *ExportedData, dst *platform.Client, prefix string, log
 		}
 	}
 
+	// Check for resources referencing orgs not in the export (e.g. "Default" is skipped)
+	exportedOrgNames := make(map[string]bool)
+	for _, org := range data.Organizations {
+		exportedOrgNames[resourceName(org)] = true
+	}
+
+	// Collect org names referenced by exported resources but not in the export
+	referencedOrgs := make(map[string]bool)
+	for _, sources := range [][]models.Resource{data.Projects, data.Credentials, data.Inventories, data.Teams, data.WorkflowJTs} {
+		for _, r := range sources {
+			orgName := extractOrgName(r)
+			if orgName != "" && !exportedOrgNames[orgName] {
+				referencedOrgs[orgName] = true
+			}
+		}
+	}
+
+	// For each non-exported org, check if it exists on the destination
+	if len(referencedOrgs) > 0 {
+		destOrgs, _ := dst.GetAll(prefix + "organizations/")
+		destOrgNames := make(map[string]bool)
+		for _, org := range destOrgs {
+			destOrgNames[resourceName(org)] = true
+		}
+		for orgName := range referencedOrgs {
+			if destOrgNames[orgName] {
+				preview.Warnings = append(preview.Warnings,
+					fmt.Sprintf("Organization %q was not exported (skipped as default) but is referenced by exported resources. It exists on the destination and will be used during import.", orgName))
+			} else {
+				preview.Warnings = append(preview.Warnings,
+					fmt.Sprintf("Organization %q is referenced by exported resources but was not found on the destination. Resources belonging to this org will fail to import.", orgName))
+			}
+		}
+	}
+
 	// Warnings
 	if len(data.Credentials) > 0 {
 		preview.Warnings = append(preview.Warnings,

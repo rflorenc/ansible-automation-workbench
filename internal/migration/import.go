@@ -76,6 +76,13 @@ func importAll(ctx context.Context, dst *platform.Client, prefix, dstType string
 	}
 	ids := newIDMap()
 
+	// Pre-populate organization name→ID from destination so that resources belonging
+	// to orgs skipped during export (e.g. "Default") can still resolve their org ID.
+	allDestOrgs, _ := dst.GetAll(prefix + "organizations/")
+	for _, org := range allDestOrgs {
+		ids.orgs[resourceName(org)] = resourceID(org)
+	}
+
 	// Pre-populate credential type name→ID from destination (for both managed and custom types)
 	allDestCT, _ := dst.GetAll(prefix + "credential_types/")
 	for _, ct := range allDestCT {
@@ -255,13 +262,19 @@ func importAll(ctx context.Context, dst *platform.Client, prefix, dstType string
 			continue
 		}
 
-		id, err := createResource(dst, prefix+"credentials/", map[string]interface{}{
+		credPayload := map[string]interface{}{
 			"name":            name,
 			"description":     stringField(cred, "description"),
-			"organization":    orgID,
 			"credential_type": destCtID,
 			"inputs":          map[string]interface{}{},
-		})
+		}
+		// Only set organization if the credential belongs to one.
+		// Global/org-less credentials (orgID=0) must omit the field
+		// or the destination API rejects it with "Invalid pk 0".
+		if orgID != 0 {
+			credPayload["organization"] = orgID
+		}
+		id, err := createResource(dst, prefix+"credentials/", credPayload)
 		if err != nil {
 			logger(fmt.Sprintf("  FAIL: %s: %v", name, err))
 			continue
