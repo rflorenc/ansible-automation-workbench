@@ -120,21 +120,37 @@ Create a `config.yaml` file, or use the provided as a base:
 listen: ":8080"
 
 connections:
-  - name: My AWX
+  - name: AWX
     type: awx
     role: source
     scheme: http
-    host: awx.example.com
-    port: 80
+    host: awx.lab.local
+    port: 32000
+    username: admin
+    password: secret
+    insecure: true
+
+  - name: AAP 2.4 RPM
+    type: aap
+    role: source
+    scheme: https
+    host: aap24rpm.lab.local
+    port: 443
     username: admin
     password: secret
     insecure: false
+    ca_cert: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      ...
+      ...==
+      -----END CERTIFICATE-----
 
-  - name: My AAP
+  - name: AAP 2.6
     type: aap
     role: destination
     scheme: https
-    host: aap.example.com
+    host: aap.lab.local
     port: 443
     username: admin
     password: secret
